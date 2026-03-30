@@ -22,7 +22,16 @@ async def lifespan(app: FastAPI):
     from pysparkassist.retrieval.query_processor import QueryProcessor
     from pysparkassist.retrieval.searcher import Searcher
 
-    model = SentenceTransformer(settings.embedding_model)
+    local_model_path = Path("data/models") / settings.embedding_model.replace("/", "_")
+    if local_model_path.exists():
+        logger.info("Loading model from local cache: %s", local_model_path)
+        model = SentenceTransformer(str(local_model_path))
+    else:
+        logger.info("Downloading model (first time only)...")
+        model = SentenceTransformer(settings.embedding_model)
+        local_model_path.parent.mkdir(parents=True, exist_ok=True)
+        model.save(str(local_model_path))
+        logger.info("Model saved to %s", local_model_path)
     qdrant = QdrantClient(path=settings.qdrant_path)
     graph = EntityGraph(settings.sqlite_path)
 
