@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html class="light" lang="en" x-data="chatApp()" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>SparkAssist | PySpark Learning Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "spark-orange": "#E25A1C",
+                    "spark-blue": { DEFAULT: "#012456", dark: "#4a7cc9" },
+                    "surface": { DEFAULT: "#f8f9fa", dark: "#121212" },
+                    "surface-container-lowest": { DEFAULT: "#ffffff", dark: "#1e1e1e" },
+                    "surface-container-low": { DEFAULT: "#f1f4f6", dark: "#252525" },
+                    "surface-container": { DEFAULT: "#eaeff1", dark: "#2c2c2c" },
+                    "surface-container-high": { DEFAULT: "#e2e9ec", dark: "#333333" },
+                    "surface-container-highest": { DEFAULT: "#dbe4e7", dark: "#3a3a3a" },
+                    "on-surface": { DEFAULT: "#2b3437", dark: "#e0e0e0" },
+                    "on-surface-variant": { DEFAULT: "#586064", dark: "#a0a0a0" },
+                    "primary-container": { DEFAULT: "#fff0e6", dark: "#3d1e08" },
+                    "on-primary-container": { DEFAULT: "#401705", dark: "#ffccb3" },
+                    "secondary-container": { DEFAULT: "#e5e1e6", dark: "#333036" },
+                    "on-secondary-container": { DEFAULT: "#525155", dark: "#cac5cb" },
+                    "inverse-surface": "#0c0f10",
+                    "surface-variant": "#dbe4e7",
+                    "outline": "#737c7f",
+                    "outline-variant": "#abb3b7",
+                    "primary": "#E25A1C",
+                    "primary-dim": "#c44a15",
+                    "on-primary": "#ffffff",
+                    "error": "#9e3f4e",
+                },
+                fontFamily: {
+                    headline: ["Manrope", "sans-serif"],
+                    body: ["Inter", "sans-serif"],
+                },
+            },
+        },
+    }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="styles.css"/>
+</head>
+<body class="bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark min-h-screen flex flex-col font-body">
+
+    <!-- Top Nav -->
+    <nav class="fixed top-0 w-full z-50 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl">
+        <div class="flex justify-between items-center h-16 w-full max-w-screen-2xl mx-auto px-6">
+            <span class="font-headline text-2xl font-bold tracking-tighter text-spark-blue dark:text-[#4a7cc9]">
+                Py<span class="text-spark-orange">Spark</span>Assist
+            </span>
+            <div class="flex items-center gap-3">
+                <button x-show="groqUsage" @click="showUsagePanel = !showUsagePanel"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    :class="usageColor()">
+                    <span class="w-2 h-2 rounded-full" :class="usageDotColor()"></span>
+                    <span x-text="groqUsage ? groqUsage.remaining_requests + ' requests left' : ''"></span>
+                </button>
+                <button @click="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors">
+                    <span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant-dark" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                </button>
+            </div>
+        </div>
+        <div x-show="showUsagePanel && groqUsage" x-transition
+            class="absolute right-6 top-16 bg-surface-container-lowest dark:bg-surface-container-lowest-dark rounded-xl p-4 shadow-lg shadow-on-surface/5 text-sm space-y-2 min-w-[220px]">
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Requests left</span><span x-text="groqUsage?.remaining_requests ?? '—'"></span></div>
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Tokens left</span><span x-text="groqUsage?.remaining_tokens ?? '—'"></span></div>
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Resets at</span><span x-text="groqUsage?.reset_time ? new Date(groqUsage.reset_time).toLocaleTimeString() : '—'"></span></div>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center pt-20 pb-4 px-6">
+        <header x-show="messages.length === 0" x-transition class="text-center mb-12 mt-16 max-w-2xl">
+            <h1 class="font-headline text-5xl font-extrabold tracking-tighter text-on-surface dark:text-on-surface-dark mb-4">
+                Py<span class="text-[#E65100]">Spark</span>Assist
+            </h1>
+            <p class="text-on-surface-variant dark:text-on-surface-variant-dark text-lg">
+                Get your PySpark queries answered from the official documentation
+            </p>
+        </header>
+
+        <div class="w-full max-w-4xl flex flex-col flex-1 relative">
+            <div x-ref="chatArea" class="flex-1 space-y-8 no-scrollbar overflow-y-auto px-2 pb-4"
+                 :class="messages.length > 0 ? 'mt-4' : ''">
+                <template x-for="(msg, idx) in messages" :key="idx">
+                    <div>
+                        <div x-show="msg.role === 'user'" class="flex justify-end">
+                            <div class="bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-on-primary-container-dark px-6 py-4 rounded-xl max-w-[80%]">
+                                <p class="text-md font-medium" x-text="msg.content"></p>
+                            </div>
+                        </div>
+                        <div x-show="msg.role === 'assistant'" class="flex justify-start">
+                            <div class="bg-surface-container-lowest dark:bg-surface-container-lowest-dark p-6 rounded-xl max-w-[90%] flex gap-5">
+                                <div class="flex-shrink-0 w-8 h-8 bg-spark-blue dark:bg-[#4a7cc9] rounded-lg flex items-center justify-center mt-1">
+                                    <span class="material-symbols-outlined text-white text-sm" style='font-variation-settings: "FILL" 1;'>bolt</span>
+                                </div>
+                                <div class="flex-1 space-y-3">
+                                    <div class="prose-spark text-on-surface dark:text-on-surface-dark text-lg leading-relaxed"
+                                         x-html="renderMarkdown(msg.content)"></div>
+                                    <div x-show="msg.sources && msg.sources.length > 0 && !msg.streaming" class="mt-4 space-y-2">
+                                        <p class="text-xs font-medium text-on-surface-variant dark:text-on-surface-variant-dark uppercase tracking-wide">Sources</p>
+                                        <template x-for="(src, si) in (msg.sources || [])" :key="si">
+                                            <div class="bg-surface-container dark:bg-surface-container-dark rounded-lg px-4 py-3 text-sm">
+                                                <div class="flex justify-between items-start gap-2">
+                                                    <a x-show="src.url" :href="src.url" target="_blank" rel="noopener"
+                                                       class="text-spark-orange font-medium hover:underline" x-text="src.title"></a>
+                                                    <span x-show="!src.url" class="text-on-surface dark:text-on-surface-dark font-medium" x-text="src.title"></span>
+                                                </div>
+                                                <p class="text-on-surface-variant dark:text-on-surface-variant-dark mt-1" x-text="src.reason"></p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="isStreaming" class="flex justify-start items-center gap-2 pl-14">
+                    <div class="w-2 h-2 bg-spark-orange rounded-full animate-pulse"></div>
+                    <span class="text-sm text-on-surface-variant dark:text-on-surface-variant-dark font-medium">Spark is curating a response...</span>
+                </div>
+            </div>
+            <div class="w-full pt-4 pb-2 sticky bottom-0 bg-surface dark:bg-surface-dark">
+                <form @submit.prevent="sendMessage()" class="relative group">
+                    <div class="bg-surface-container-high dark:bg-surface-container-high-dark rounded-full w-full p-2 pl-8 flex items-center gap-4 transition-all duration-300 focus-within:bg-surface-container-lowest dark:focus-within:bg-surface-container-lowest-dark focus-within:shadow-[0_40px_60px_-15px_rgba(43,52,55,0.08)]">
+                        <input x-model="input" :disabled="isStreaming"
+                            class="bg-transparent border-none focus:ring-0 flex-1 text-on-surface dark:text-on-surface-dark text-lg placeholder:text-on-surface-variant/60 dark:placeholder:text-on-surface-variant-dark/60 font-medium py-3"
+                            placeholder="Ask me anything about PySpark..." type="text"/>
+                        <div class="flex items-center gap-2 pr-2">
+                            <button type="submit" :disabled="isStreaming || !input.trim()"
+                                class="w-12 h-12 bg-gradient-to-br from-spark-orange to-spark-blue text-white rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-spark-orange/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="material-symbols-outlined">send</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
