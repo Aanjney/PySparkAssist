@@ -50,15 +50,28 @@ function chatApp() {
         },
 
         normalizeMarkdown(raw) {
-            let text = raw;
-            // De-indent code fences that are inside list items so marked.js recognizes them
-            text = text.replace(/^([ \t]+)(```)/gm, '$2');
-            // Close unclosed code fences (common during streaming)
-            const fenceCount = (text.match(/^```/gm) || []).length;
-            if (fenceCount % 2 !== 0) text += '\n```';
-            // Add python language tag to bare fences for highlight.js
-            text = text.replace(/^```\s*$/gm, '```python');
-            return text;
+            const lines = raw.split('\n');
+            const out = [];
+            let inCode = false;
+
+            for (const line of lines) {
+                const stripped = line.trimStart();
+                if (stripped.startsWith('```')) {
+                    if (inCode) {
+                        out.push('```');
+                        inCode = false;
+                    } else {
+                        const lang = stripped.slice(3).trim();
+                        out.push('```' + (lang || 'python'));
+                        inCode = true;
+                    }
+                } else {
+                    out.push(inCode ? line : line);
+                }
+            }
+
+            if (inCode) out.push('```');
+            return out.join('\n');
         },
 
         renderMarkdown(content) {
