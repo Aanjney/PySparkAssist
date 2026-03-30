@@ -31,8 +31,11 @@ def merge_results(
     for r in graph_results:
         if r.chunk_id in by_id:
             by_id[r.chunk_id].score += boost
-            if not by_id[r.chunk_id].retrieval_reason:
-                by_id[r.chunk_id].retrieval_reason = "Direct match + related via knowledge graph"
+            existing = by_id[r.chunk_id]
+            if "knowledge graph" not in existing.retrieval_reason:
+                existing.retrieval_reason = existing.retrieval_reason.replace(
+                    "semantic similarity", "semantic similarity + knowledge graph"
+                )
         else:
             by_id[r.chunk_id] = r
 
@@ -45,6 +48,22 @@ class Searcher:
         self.client = client
         self.graph = graph
         self.collection_name = collection_name
+
+    def _build_reason(self, payload: dict, via: str = "semantic similarity") -> str:
+        content_type = payload.get("content_type", "documentation")
+        section = payload.get("section_path", "")
+        version = payload.get("doc_version", "")
+        file_path = payload.get("file_path", "")
+
+        if content_type == "code_example" and file_path:
+            return f"Python example from {file_path} — matched via {via}"
+        parts = []
+        if section:
+            parts.append(section)
+        if version:
+            parts.append(f"PySpark {version}")
+        location = " — ".join(parts) if parts else "PySpark documentation"
+        return f"From {location} — matched via {via}"
 
     def vector_search(self, embedding: list[float], top_k: int = 10) -> list[SearchResult]:
         hits = self.client.query_points(
@@ -59,7 +78,7 @@ class Searcher:
                 content=h.payload.get("content", ""),
                 score=h.score,
                 metadata={k: v for k, v in h.payload.items() if k not in ("content", "chunk_id")},
-                retrieval_reason="Direct match — similar to your question",
+                retrieval_reason=self._build_reason(h.payload, "semantic similarity"),
             )
             for h in hits
         ]
@@ -86,7 +105,7 @@ class Searcher:
                 content=h.payload.get("content", ""),
                 score=h.score,
                 metadata={k: v for k, v in h.payload.items() if k not in ("content", "chunk_id")},
-                retrieval_reason=f"Related — linked via knowledge graph to: {', '.join(entity_names)}",
+                retrieval_reason=self._build_reason(h.payload, f"knowledge graph ({', '.join(entity_names)})"),
             )
             for h in hits
         ]

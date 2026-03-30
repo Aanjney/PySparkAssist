@@ -37,8 +37,15 @@ def build_context(
 
         sections.append(f"{label}\n{result.content}")
 
+        title = result.metadata.get("section_path", "")
+        if not title and file_path:
+            title = file_path
+        if not title:
+            title = f"Source {i}"
+        title = title.split("[")[0].split("(")[0].strip()
+
         sources.append({
-            "title": result.metadata.get("section_path", file_path or f"Source {i}"),
+            "title": title,
             "url": source_url,
             "reason": result.retrieval_reason,
             "content_type": content_type,

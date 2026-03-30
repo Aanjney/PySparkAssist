@@ -36,7 +36,7 @@ function chatApp() {
 
         renderMarkdown(content) {
             if (!content) return '';
-            return marked.parse(content, { breaks: true });
+            return marked.parse(content, { breaks: false, gfm: true });
         },
 
         scrollToBottom() {
@@ -96,34 +96,44 @@ function chatApp() {
                     if (done) break;
 
                     buffer += decoder.decode(value, { stream: true });
+                    buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
 
+                    let eventType = currentEvent;
+                    let dataChunks = [];
+
                     for (const line of lines) {
-                        if (line.startsWith('event: ')) {
-                            currentEvent = line.slice(7).trim();
+                        if (line.startsWith('event:')) {
+                            eventType = line.slice(6).trim();
                             continue;
                         }
-                        if (!line.startsWith('data: ')) continue;
-                        const data = line.slice(6);
-
-                        if (currentEvent === 'token') {
-                            this.messages[msgIndex].content += data;
-                            this.scrollToBottom();
-                        } else if (currentEvent === 'done') {
-                            try {
-                                const doneData = JSON.parse(data);
-                                this.messages[msgIndex].sources = doneData.sources || [];
-                                if (doneData.usage) {
-                                    this.groqUsage = doneData.usage;
-                                }
-                            } catch (e) {}
-                            this.messages[msgIndex].streaming = false;
-                        } else if (currentEvent === 'error') {
-                            this.messages[msgIndex].content += '\n\n*Error: ' + data + '*';
-                            this.messages[msgIndex].streaming = false;
+                        if (line.startsWith('data:')) {
+                            dataChunks.push(line.slice(5).trimStart());
+                            continue;
                         }
-                        currentEvent = 'token';
+                        if (line === '' && dataChunks.length > 0) {
+                            const data = dataChunks.join('\n');
+                            dataChunks = [];
+
+                            if (eventType === 'token') {
+                                this.messages[msgIndex].content += data;
+                                this.scrollToBottom();
+                            } else if (eventType === 'done') {
+                                try {
+                                    const doneData = JSON.parse(data);
+                                    this.messages[msgIndex].sources = doneData.sources || [];
+                                    if (doneData.usage) {
+                                        this.groqUsage = doneData.usage;
+                                    }
+                                } catch (e) {}
+                                this.messages[msgIndex].streaming = false;
+                            } else if (eventType === 'error') {
+                                this.messages[msgIndex].content += '\n\n*Error: ' + data + '*';
+                                this.messages[msgIndex].streaming = false;
+                            }
+                            eventType = 'token';
+                        }
                     }
                 }
 
