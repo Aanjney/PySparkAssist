@@ -49,9 +49,22 @@ function chatApp() {
             return parts.join(' ');
         },
 
+        normalizeMarkdown(raw) {
+            let text = raw;
+            // De-indent code fences that are inside list items so marked.js recognizes them
+            text = text.replace(/^([ \t]+)(```)/gm, '$2');
+            // Close unclosed code fences (common during streaming)
+            const fenceCount = (text.match(/^```/gm) || []).length;
+            if (fenceCount % 2 !== 0) text += '\n```';
+            // Add python language tag to bare fences for highlight.js
+            text = text.replace(/^```\s*$/gm, '```python');
+            return text;
+        },
+
         renderMarkdown(content) {
             if (!content) return '';
-            const html = marked.parse(content, { breaks: false, gfm: true });
+            const normalized = this.normalizeMarkdown(content);
+            const html = marked.parse(normalized, { breaks: false, gfm: true });
             this.$nextTick(() => {
                 this.$el.querySelectorAll('pre code:not(.hljs)').forEach(block => {
                     hljs.highlightElement(block);
