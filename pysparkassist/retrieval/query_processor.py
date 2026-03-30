@@ -2,7 +2,7 @@ import re
 
 from sentence_transformers import SentenceTransformer
 
-from pysparkassist.ingest.entities import EntityGraph, PYSPARK_CLASSES
+from pysparkassist.ingest.entities import EntityGraph, PYSPARK_CLASSES, DOMAIN_TERMS
 
 
 class QueryProcessor:
@@ -36,7 +36,13 @@ class QueryProcessor:
 
         return found
 
+    def has_domain_relevance(self, query: str) -> bool:
+        """Check if the query contains data engineering / Spark domain terms."""
+        q_lower = query.lower()
+        return any(term in q_lower for term in DOMAIN_TERMS)
+
     def process(self, query: str) -> dict:
         embedding = self.embed_query(query)
         entities = self.extract_query_entities(query)
-        return {"embedding": embedding, "entities": entities}
+        domain_relevant = self.has_domain_relevance(query)
+        return {"embedding": embedding, "entities": entities, "domain_relevant": domain_relevant}

@@ -41,10 +41,30 @@ async def chat(request: Request, body: ChatRequest):
     searcher = request.app.state.searcher
 
     processed = qp.process(body.query)
+    has_entities = len(processed["entities"]) > 0
+    domain_relevant = processed.get("domain_relevant", False)
     results = searcher.search(processed["embedding"], processed["entities"])
     context = build_context(results)
 
-    if context.top_score > 0 and context.top_score < settings.relevance_threshold:
+    has_pyspark_history = any(
+        "pyspark" in m.get("content", "").lower()
+        or "spark" in m.get("content", "").lower()
+        or "dataframe" in m.get("content", "").lower()
+        for m in body.history
+        if m.get("role") in ("user", "assistant")
+    ) if body.history else False
+
+    is_off_topic = (
+        (context.top_score > 0 and context.top_score < settings.relevance_threshold)
+        or (
+            not has_entities
+            and not domain_relevant
+            and not has_pyspark_history
+            and context.top_score < 0.55
+        )
+    )
+
+    if is_off_topic:
         async def off_topic_stream():
             yield {"event": "token", "data": "I'm designed to help with PySpark — could you rephrase your question around PySpark or Apache Spark?"}
             yield {"event": "done", "data": json.dumps({"sources": [], "usage": None})}
