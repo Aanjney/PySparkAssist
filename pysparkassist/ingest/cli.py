@@ -66,11 +66,22 @@ def cmd_embed(args: argparse.Namespace) -> None:
     logger.info("Embedding complete: %d chunks stored", count)
 
 
+def cmd_build_graph(args: argparse.Namespace) -> None:
+    """Build entity relationships from co-occurrence + curated seed."""
+    from pysparkassist.ingest.entities import EntityGraph, build_graph
+    settings = get_settings()
+    graph = EntityGraph(settings.sqlite_path)
+    result = build_graph(graph)
+    logger.info("Graph built: %s", result)
+    graph.close()
+
+
 def cmd_run(args: argparse.Namespace) -> None:
-    """Run the full pipeline: scrape -> chunk -> embed."""
+    """Run the full pipeline: scrape -> chunk -> embed -> build graph."""
     logger.info("Starting full ingestion pipeline")
     cmd_scrape(args)
     cmd_embed(args)
+    cmd_build_graph(args)
     logger.info("Ingestion pipeline complete")
 
 
@@ -78,13 +89,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="PySparkAssist ingestion pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("run", help="Run full pipeline (scrape + chunk + embed)")
+    sub.add_parser("run", help="Run full pipeline (scrape + chunk + embed + build-graph)")
     sub.add_parser("scrape", help="Scrape PySpark docs and examples")
     sub.add_parser("chunk", help="Chunk scraped content (dry run, no storage)")
     sub.add_parser("embed", help="Chunk + embed + store in Qdrant and SQLite")
+    sub.add_parser("build-graph", help="Build entity relationships from co-occurrence + curated seed")
 
     args = parser.parse_args()
-    commands = {"run": cmd_run, "scrape": cmd_scrape, "chunk": cmd_chunk, "embed": cmd_embed}
+    commands = {"run": cmd_run, "scrape": cmd_scrape, "chunk": cmd_chunk, "embed": cmd_embed, "build-graph": cmd_build_graph}
     commands[args.command](args)
 
 

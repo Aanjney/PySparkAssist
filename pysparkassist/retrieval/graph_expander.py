@@ -1,8 +1,17 @@
 from pysparkassist.ingest.entities import EntityGraph
 
 
-def expand_entities(entity_names: list[str], graph: EntityGraph, max_depth: int = 1) -> set[str]:
-    """Expand entity names by traversing the knowledge graph."""
+def expand_entities(
+    entity_names: list[str],
+    graph: EntityGraph,
+    max_depth: int = 1,
+    max_expansion: int = 15,
+) -> set[str]:
+    """Expand entity names by traversing the knowledge graph.
+
+    Caps total expansion to max_expansion to prevent highly connected
+    hub nodes from returning overly broad filter sets.
+    """
     if not entity_names:
         return set()
 
@@ -17,6 +26,8 @@ def expand_entities(entity_names: list[str], graph: EntityGraph, max_depth: int 
                 if entity.name not in expanded:
                     expanded.add(entity.name)
                     next_frontier.append(entity.name)
+                    if len(expanded) >= max_expansion:
+                        return expanded
         frontier = next_frontier
 
     return expanded
