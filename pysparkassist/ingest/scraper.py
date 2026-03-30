@@ -72,13 +72,27 @@ def clone_spark_examples(output_dir: Path) -> Path:
         return examples_dir
 
     clone_dir = output_dir / "spark_repo"
+    clone_dir.mkdir(parents=True, exist_ok=True)
+
     subprocess.run(
-        ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", SPARK_EXAMPLES_REPO, str(clone_dir)],
+        ["git", "clone", "--depth", "1", "--no-checkout", SPARK_EXAMPLES_REPO, str(clone_dir)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "sparse-checkout", "init", "--cone"],
+        cwd=str(clone_dir),
         check=True,
         capture_output=True,
     )
     subprocess.run(
         ["git", "sparse-checkout", "set", SPARK_EXAMPLES_PATH],
+        cwd=str(clone_dir),
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "checkout"],
         cwd=str(clone_dir),
         check=True,
         capture_output=True,
