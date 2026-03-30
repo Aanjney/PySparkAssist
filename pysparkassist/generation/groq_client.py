@@ -53,7 +53,15 @@ def stream_completion_generator(
 
     except Exception as e:
         logger.error("Groq streaming error: %s", e)
-        yield StreamEvent(event_type="error", data=str(e))
+        err = str(e).lower()
+        if "rate_limit" in err or "rate limit" in err or "429" in err:
+            yield StreamEvent(event_type="error", data="rate_limit")
+        elif "413" in err or "too large" in err:
+            yield StreamEvent(event_type="error", data="context_too_large")
+        elif "401" in err or "authentication" in err:
+            yield StreamEvent(event_type="error", data="auth_error")
+        else:
+            yield StreamEvent(event_type="error", data="service_error")
 
 
 def _parse_int(value: str | None) -> int | None:

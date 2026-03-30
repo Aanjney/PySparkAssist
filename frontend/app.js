@@ -178,7 +178,13 @@ function chatApp() {
                                 } catch (e) {}
                                 this.messages[msgIndex].streaming = false;
                             } else if (eventType === 'error') {
-                                this.messages[msgIndex].content += '\n\n*Error: ' + data + '*';
+                                const errorMessages = {
+                                    rate_limit: 'The AI service is temporarily at capacity. Please wait a minute and try again.',
+                                    context_too_large: 'Your question produced too much context. Try asking something more specific.',
+                                    auth_error: 'There is a configuration issue with the AI service. Please contact the administrator.',
+                                    service_error: 'Something went wrong on our end. Please try again shortly.',
+                                };
+                                this.messages[msgIndex].content = errorMessages[data] || errorMessages.service_error;
                                 this.messages[msgIndex].streaming = false;
                             }
                             eventType = 'token';
