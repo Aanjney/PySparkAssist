@@ -49,9 +49,15 @@ class Searcher:
         self.graph = graph
         self.collection_name = collection_name
 
+    @staticmethod
+    def _clean_section(raw: str) -> str:
+        import re
+        cleaned = re.sub(r'\[#?\]\([^)]*\)', '', raw)
+        return cleaned.strip()
+
     def _build_reason(self, payload: dict, via: str = "semantic similarity") -> str:
         content_type = payload.get("content_type", "documentation")
-        section = payload.get("section_path", "")
+        section = self._clean_section(payload.get("section_path", ""))
         version = payload.get("doc_version", "")
         file_path = payload.get("file_path", "")
 
