@@ -46,6 +46,9 @@
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css"/>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/languages/python.min.js"></script>
     <link rel="stylesheet" href="styles.css"/>
 </head>
 <body class="bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark min-h-screen flex flex-col font-body">
@@ -61,18 +64,23 @@
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                     :class="usageColor()">
                     <span class="w-2 h-2 rounded-full" :class="usageDotColor()"></span>
-                    <span x-text="groqUsage ? groqUsage.remaining_requests + ' requests left' : ''"></span>
+                    <span x-text="groqUsage ? groqUsage.remaining_requests + ' req/min' : ''"></span>
                 </button>
                 <button @click="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors">
                     <span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant-dark" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
                 </button>
             </div>
         </div>
-        <div x-show="showUsagePanel && groqUsage" x-transition
-            class="absolute right-6 top-16 bg-surface-container-lowest dark:bg-surface-container-lowest-dark rounded-xl p-4 shadow-lg shadow-on-surface/5 text-sm space-y-2 min-w-[220px]">
-            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Requests left</span><span x-text="groqUsage?.remaining_requests ?? '—'"></span></div>
-            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Tokens left</span><span x-text="groqUsage?.remaining_tokens ?? '—'"></span></div>
-            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Resets at</span><span x-text="groqUsage?.reset_time ? new Date(groqUsage.reset_time).toLocaleTimeString() : '—'"></span></div>
+        <div x-show="showUsagePanel && groqUsage" x-transition @click.outside="showUsagePanel = false"
+            class="absolute right-6 top-16 bg-surface-container-lowest dark:bg-surface-container-lowest-dark rounded-xl p-4 shadow-lg shadow-on-surface/5 text-sm space-y-2 min-w-[260px]">
+            <p class="text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-on-surface-variant-dark font-semibold mb-1">Groq API (shared limits)</p>
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Requests / min</span><span x-text="groqUsage?.remaining_requests ?? '—'"></span></div>
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Tokens / min</span><span x-text="groqUsage?.remaining_tokens ?? '—'"></span></div>
+            <div class="flex justify-between"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Window resets in</span><span x-text="formatResetTime(groqUsage?.reset_time)"></span></div>
+            <div class="border-t border-outline-variant/30 pt-2 mt-1 space-y-1">
+                <p class="text-[10px] text-on-surface-variant dark:text-on-surface-variant-dark leading-snug">These are the Groq LLM provider's rate limits for this app. Values refresh after each answer.</p>
+                <p x-show="groqUsageUpdatedAt" class="text-[10px] text-on-surface-variant dark:text-on-surface-variant-dark text-right" x-text="groqUsageUpdatedAt ? 'Last updated ' + groqUsageUpdatedAt.toLocaleTimeString() : ''"></p>
+            </div>
         </div>
     </nav>
 
@@ -93,7 +101,7 @@
                     <div>
                         <div x-show="msg.role === 'user'" class="flex justify-end">
                             <div class="bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-on-primary-container-dark px-6 py-4 rounded-xl max-w-[80%]">
-                                <p class="text-md font-medium" x-text="msg.content"></p>
+                                <p class="text-base font-medium" x-text="msg.content"></p>
                             </div>
                         </div>
                         <div x-show="msg.role === 'assistant'" class="flex justify-start">
@@ -102,20 +110,26 @@
                                     <span class="material-symbols-outlined text-white text-sm" style='font-variation-settings: "FILL" 1;'>bolt</span>
                                 </div>
                                 <div class="flex-1 space-y-3">
-                                    <div class="prose-spark text-on-surface dark:text-on-surface-dark text-lg leading-relaxed"
+                                    <div class="prose-spark text-on-surface dark:text-on-surface-dark text-base leading-relaxed"
                                          x-html="renderMarkdown(msg.content)"></div>
-                                    <div x-show="msg.sources && msg.sources.length > 0 && !msg.streaming" class="mt-4 space-y-2">
-                                        <p class="text-xs font-medium text-on-surface-variant dark:text-on-surface-variant-dark uppercase tracking-wide">Sources</p>
-                                        <template x-for="(src, si) in (msg.sources || [])" :key="si">
-                                            <div class="bg-surface-container dark:bg-surface-container-dark rounded-lg px-4 py-3 text-sm">
-                                                <div class="flex justify-between items-start gap-2">
-                                                    <a x-show="src.url" :href="src.url" target="_blank" rel="noopener"
-                                                       class="text-spark-orange font-medium hover:underline" x-text="src.title"></a>
-                                                    <span x-show="!src.url" class="text-on-surface dark:text-on-surface-dark font-medium" x-text="src.title"></span>
+                                    <div x-show="msg.sources && msg.sources.length > 0 && !msg.streaming" x-data="{ open: false }" class="mt-4">
+                                        <button @click="open = !open"
+                                            class="flex items-center gap-1.5 text-xs font-medium text-on-surface-variant dark:text-on-surface-variant-dark uppercase tracking-wide hover:text-on-surface dark:hover:text-on-surface-dark transition-colors">
+                                            <span class="material-symbols-outlined text-sm transition-transform duration-200" :class="open ? 'rotate-180' : ''">expand_more</span>
+                                            <span x-text="'Sources (' + (msg.sources?.length || 0) + ')'"></span>
+                                        </button>
+                                        <div x-show="open" x-transition class="mt-2 space-y-2">
+                                            <template x-for="(src, si) in (msg.sources || [])" :key="si">
+                                                <div class="bg-surface-container dark:bg-surface-container-dark rounded-lg px-4 py-3 text-sm">
+                                                    <div class="flex justify-between items-start gap-2">
+                                                        <a x-show="src.url" :href="src.url" target="_blank" rel="noopener"
+                                                           class="text-spark-orange font-medium hover:underline" x-text="src.title"></a>
+                                                        <span x-show="!src.url" class="text-on-surface dark:text-on-surface-dark font-medium" x-text="src.title"></span>
+                                                    </div>
+                                                    <p class="text-on-surface-variant dark:text-on-surface-variant-dark mt-1" x-text="src.reason"></p>
                                                 </div>
-                                                <p class="text-on-surface-variant dark:text-on-surface-variant-dark mt-1" x-text="src.reason"></p>
-                                            </div>
-                                        </template>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

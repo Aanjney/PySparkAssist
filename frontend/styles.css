@@ -9,22 +9,37 @@
 .prose-spark { line-height: 1.75; }
 .prose-spark p { margin-bottom: 0.75rem; }
 .prose-spark p:last-child { margin-bottom: 0; }
-.prose-spark ul, .prose-spark ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose-spark ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose-spark ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 0.75rem; }
 .prose-spark li { margin-bottom: 0.25rem; }
+.prose-spark li > p { margin-bottom: 0.25rem; }
 .prose-spark a { color: #E25A1C; text-decoration: underline; }
 .prose-spark strong { font-weight: 600; }
-.prose-spark h3, .prose-spark h4 { font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+.prose-spark h2 { font-weight: 700; font-size: 1.25rem; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.prose-spark h3 { font-weight: 600; font-size: 1.1rem; margin-top: 1rem; margin-bottom: 0.5rem; }
+.prose-spark h4 { font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.4rem; }
+.prose-spark blockquote {
+    border-left: 3px solid #E25A1C;
+    padding-left: 1rem;
+    margin: 0.75rem 0;
+    color: #586064;
+}
+.prose-spark hr { border-color: #dbe4e7; margin: 1rem 0; }
+.prose-spark table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
+.prose-spark th { text-align: left; font-weight: 600; padding: 0.5rem 0.75rem; border-bottom: 2px solid #dbe4e7; }
+.prose-spark td { padding: 0.4rem 0.75rem; border-bottom: 1px solid #eaeff1; }
 
 .prose-spark pre {
-    background: #0c0f10;
-    color: #dbe4e7;
+    background: #0d1117;
+    color: #e6edf3;
     border-radius: 0.5rem;
     padding: 1rem;
     overflow-x: auto;
     margin: 0.75rem 0;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     line-height: 1.6;
 }
+.prose-spark pre code { background: none; padding: 0; border-radius: 0; font-size: inherit; color: inherit; }
 .prose-spark code {
     font-size: 0.875rem;
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
@@ -36,6 +51,10 @@
     font-size: 0.85em;
 }
 
-.dark .prose-spark pre { background: #1e1e1e; }
+.dark .prose-spark pre { background: #0d1117; }
 .dark .prose-spark a { color: #ff8a50; }
 .dark .prose-spark :not(pre) > code { background: #333333; color: #e0e0e0; }
+.dark .prose-spark blockquote { color: #a0a0a0; border-left-color: #ff8a50; }
+.dark .prose-spark hr { border-color: #333333; }
+.dark .prose-spark th { border-bottom-color: #3a3a3a; }
+.dark .prose-spark td { border-bottom-color: #2c2c2c; }

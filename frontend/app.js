@@ -4,6 +4,7 @@ function chatApp() {
         input: '',
         isStreaming: false,
         groqUsage: null,
+        groqUsageUpdatedAt: null,
         showUsagePanel: false,
         darkMode: localStorage.getItem('darkMode') === 'true' ||
                   (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches),
@@ -34,15 +35,35 @@ function chatApp() {
             return 'bg-green-500';
         },
 
+        formatResetTime(val) {
+            if (!val) return '—';
+            const match = val.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/);
+            if (!match) return val;
+            const h = parseInt(match[1] || '0');
+            const m = parseInt(match[2] || '0');
+            const s = Math.round(parseFloat(match[3] || '0'));
+            const parts = [];
+            if (h) parts.push(h + 'h');
+            if (m) parts.push(m + 'm');
+            if (s || parts.length === 0) parts.push(s + 's');
+            return parts.join(' ');
+        },
+
         renderMarkdown(content) {
             if (!content) return '';
-            return marked.parse(content, { breaks: false, gfm: true });
+            const html = marked.parse(content, { breaks: false, gfm: true });
+            this.$nextTick(() => {
+                this.$el.querySelectorAll('pre code:not(.hljs)').forEach(block => {
+                    hljs.highlightElement(block);
+                });
+            });
+            return html;
         },
 
         scrollToBottom() {
             this.$nextTick(() => {
                 const area = this.$refs.chatArea;
-                if (area) area.scrollTop = area.scrollHeight;
+                if (area) area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
             });
         },
 
@@ -59,11 +80,11 @@ function chatApp() {
             this.messages.push({ role: 'user', content: query });
             this.input = '';
             this.isStreaming = true;
-            this.scrollToBottom();
 
             const assistantMsg = { role: 'assistant', content: '', sources: [], streaming: true };
             this.messages.push(assistantMsg);
             const msgIndex = this.messages.length - 1;
+            this.scrollToBottom();
 
             try {
                 const response = await fetch('/api/chat', {
@@ -109,7 +130,8 @@ function chatApp() {
                             continue;
                         }
                         if (line.startsWith('data:')) {
-                            dataChunks.push(line.slice(5).trimStart());
+                            const raw = line.slice(5);
+                            dataChunks.push(raw.startsWith(' ') ? raw.slice(1) : raw);
                             continue;
                         }
                         if (line === '' && dataChunks.length > 0) {
@@ -125,6 +147,7 @@ function chatApp() {
                                     this.messages[msgIndex].sources = doneData.sources || [];
                                     if (doneData.usage) {
                                         this.groqUsage = doneData.usage;
+                                        this.groqUsageUpdatedAt = new Date();
                                     }
                                 } catch (e) {}
                                 this.messages[msgIndex].streaming = false;
