@@ -8,29 +8,43 @@ RULES:
 - Explain concepts step-by-step, as if teaching someone new to PySpark.
 - Include code examples where relevant. Use Python and PySpark syntax.
 - Keep answers clear and concise, but thorough enough for a learner.
+- NEVER generate URLs or hyperlinks in your response. Sources are provided separately to the user. Do not fabricate documentation links.
 """
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~4 chars per token for English."""
+    return len(text) // 4
 
 
 def build_messages(
     user_query: str,
     context_text: str,
     session_history: list[dict] | None = None,
-    max_history: int = 6,
+    max_history: int = 4,
+    max_input_tokens: int = 7000,
 ) -> list[dict]:
-    """Build the message list for the Groq API call."""
+    """Build the message list for the Groq API call, truncating to fit token budget."""
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    budget = max_input_tokens - _estimate_tokens(SYSTEM_PROMPT) - _estimate_tokens(user_query) - 100
 
-    if context_text:
+    history_msgs: list[dict] = []
+    if session_history:
+        recent = session_history[-max_history:]
+        for msg in recent:
+            if msg.get("role") in ("user", "assistant"):
+                history_msgs.append({"role": msg["role"], "content": msg["content"]})
+        budget -= sum(_estimate_tokens(m["content"]) for m in history_msgs)
+
+    if context_text and budget > 200:
+        if _estimate_tokens(context_text) > budget:
+            char_limit = budget * 4
+            context_text = context_text[:char_limit].rsplit("\n\n---\n\n", 1)[0]
         messages.append({
             "role": "system",
             "content": f"Here is the relevant context retrieved from PySpark documentation and examples:\n\n{context_text}",
         })
 
-    if session_history:
-        recent = session_history[-max_history:]
-        for msg in recent:
-            if msg.get("role") in ("user", "assistant"):
-                messages.append({"role": msg["role"], "content": msg["content"]})
-
+    messages.extend(history_msgs)
     messages.append({"role": "user", "content": user_query})
     return messages
