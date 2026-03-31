@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from pysparkassist.config import get_settings
-from pysparkassist.ingest.scraper import scrape_all, clone_spark_examples, scrape_pyspark_docs, PYSPARK_DOC_ROOTS
+from pysparkassist.ingest.scraper import scrape_all
 from pysparkassist.ingest.chunker import chunk_markdown, chunk_python_file, Chunk
 from pysparkassist.ingest.embedder import embed_and_store
 
@@ -43,20 +43,18 @@ def load_chunks_from_raw(raw_dir: Path) -> list[Chunk]:
 
 def cmd_scrape(args: argparse.Namespace) -> None:
     settings = get_settings()
-    raw_dir = Path("data/raw")
-    asyncio.run(scrape_all(raw_dir))
+    asyncio.run(scrape_all(Path(settings.raw_data_path)))
 
 
 def cmd_chunk(args: argparse.Namespace) -> None:
-    raw_dir = Path("data/raw")
-    chunks = load_chunks_from_raw(raw_dir)
+    settings = get_settings()
+    chunks = load_chunks_from_raw(Path(settings.raw_data_path))
     logger.info("Created %d chunks from raw data", len(chunks))
 
 
 def cmd_embed(args: argparse.Namespace) -> None:
     settings = get_settings()
-    raw_dir = Path("data/raw")
-    chunks = load_chunks_from_raw(raw_dir)
+    chunks = load_chunks_from_raw(Path(settings.raw_data_path))
     count = embed_and_store(
         chunks,
         qdrant_path=settings.qdrant_path,
@@ -68,7 +66,8 @@ def cmd_embed(args: argparse.Namespace) -> None:
 
 def cmd_build_graph(args: argparse.Namespace) -> None:
     """Build entity relationships from co-occurrence + curated seed."""
-    from pysparkassist.ingest.entities import EntityGraph, build_graph
+    from pysparkassist.ingest.entities import EntityGraph
+    from pysparkassist.ingest.graph_builder import build_graph
     settings = get_settings()
     graph = EntityGraph(settings.sqlite_path)
     result = build_graph(graph)

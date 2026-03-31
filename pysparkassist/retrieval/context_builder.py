@@ -6,6 +6,10 @@ from pysparkassist.retrieval.searcher import SearchResult
 _ANCHOR_URL_RE = re.compile(r'\[#?\]\((https?://[^\s"]+)')
 _LINK_ARTIFACTS_RE = re.compile(r'\[#?\]\([^)]*\)')
 
+_GITHUB_EXAMPLES_BASE = (
+    "https://github.com/apache/spark/blob/master/examples/src/main/python/"
+)
+
 _NAV_PATTERNS = [
     re.compile(r'\[Skip to main content\]\([^)]*\)'),
     re.compile(r'`Ctrl`\+`K`'),
@@ -29,6 +33,29 @@ def _clean_content(text: str) -> str:
     return text.strip()
 
 
+def _dedup_sources(sources: list[dict]) -> list[dict]:
+    """Merge sources with the same title + content_type, combining versions."""
+    seen: dict[tuple, dict] = {}
+    order: list[tuple] = []
+
+    for src in sources:
+        key = (src["title"], src["content_type"])
+        if key in seen:
+            existing = seen[key]
+            for v in src["versions"]:
+                if v and v not in existing["versions"]:
+                    existing["versions"].append(v)
+            if not existing["url"] and src["url"]:
+                existing["url"] = src["url"]
+            if src["match_type"] == "knowledge_graph" and existing["match_type"] != "knowledge_graph":
+                existing["match_type"] = "knowledge_graph"
+        else:
+            seen[key] = src
+            order.append(key)
+
+    return [seen[k] for k in order]
+
+
 @dataclass
 class ContextResult:
     context_text: str
@@ -38,27 +65,30 @@ class ContextResult:
 
 def build_context(
     results: list[SearchResult],
-    relevance_threshold: float = 0.0,
     max_chunks: int = 5,
 ) -> ContextResult:
     """Assemble retrieved chunks into a context string with source metadata."""
-    filtered = [r for r in results if r.score >= relevance_threshold][:max_chunks]
+    filtered = results[:max_chunks]
 
     if not filtered:
         return ContextResult(context_text="", sources=[], top_score=0.0)
 
     sections: list[str] = []
-    sources: list[dict] = []
+    raw_sources: list[dict] = []
 
     for i, result in enumerate(filtered, 1):
         content_type = result.metadata.get("content_type", "documentation")
         raw_section = result.metadata.get("section_path", "")
         source_url = result.metadata.get("source_url")
         file_path = result.metadata.get("file_path")
+        doc_version = result.metadata.get("doc_version")
 
         anchor_match = _ANCHOR_URL_RE.search(raw_section)
         if anchor_match:
             source_url = anchor_match.group(1)
+
+        if content_type == "code_example" and file_path and not source_url:
+            source_url = _GITHUB_EXAMPLES_BASE + file_path
 
         label = f"[Source {i}]"
         if content_type == "code_example":
@@ -75,13 +105,18 @@ def build_context(
         if not title:
             title = f"Source {i}"
 
-        sources.append({
+        reason = result.retrieval_reason
+        match_type = "knowledge_graph" if "knowledge graph" in reason else "semantic"
+
+        raw_sources.append({
             "title": title,
             "url": source_url,
-            "reason": result.retrieval_reason,
             "content_type": content_type,
+            "versions": [doc_version] if doc_version else [],
+            "match_type": match_type,
         })
 
+    sources = _dedup_sources(raw_sources)
     context_text = "\n\n---\n\n".join(sections)
     return ContextResult(
         context_text=context_text,

@@ -12,10 +12,15 @@ class RateLimiter:
         now = time.time()
         cutoff = now - self.window_seconds
 
-        self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
+        timestamps = [t for t in self._requests[ip] if t > cutoff]
 
-        if len(self._requests[ip]) >= self.max_requests:
+        if not timestamps:
+            self._requests.pop(ip, None)
+
+        if len(timestamps) >= self.max_requests:
+            self._requests[ip] = timestamps
             return False
 
-        self._requests[ip].append(now)
+        timestamps.append(now)
+        self._requests[ip] = timestamps
         return True

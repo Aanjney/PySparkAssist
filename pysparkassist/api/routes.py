@@ -3,22 +3,25 @@ import logging
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from pysparkassist.api.rate_limiter import RateLimiter
 from pysparkassist.retrieval.context_builder import build_context
 from pysparkassist.generation.prompt import build_messages
-from pysparkassist.generation.groq_client import stream_completion_generator
+from pysparkassist.generation.groq_client import stream_completion
+from pysparkassist.api.groq_limits_store import save_groq_limits
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-limiter = RateLimiter()
+
+
+MAX_QUERY_LENGTH = 2000
+MAX_HISTORY_TURNS = 20
 
 
 class ChatRequest(BaseModel):
-    query: str
-    history: list[dict] = []
+    query: str = Field(..., min_length=1, max_length=MAX_QUERY_LENGTH)
+    history: list[dict] = Field(default=[], max_length=MAX_HISTORY_TURNS)
 
 
 @router.get("/health")
@@ -26,11 +29,20 @@ async def health():
     return {"status": "ok"}
 
 
+@router.get("/limits")
+async def limits(request: Request):
+    data = request.app.state.groq_limits
+    return data if data else {}
+
+
 @router.post("/chat")
 async def chat(request: Request, body: ChatRequest):
+    if not body.query.strip():
+        return JSONResponse(status_code=400, content={"error": "Query cannot be empty."})
+
     client_ip = request.client.host if request.client else "unknown"
 
-    if not limiter.is_allowed(client_ip):
+    if not request.app.state.limiter.is_allowed(client_ip):
         return JSONResponse(
             status_code=429,
             content={"error": "Please wait a moment before asking another question."},
@@ -79,18 +91,18 @@ async def chat(request: Request, body: ChatRequest):
     messages = build_messages(body.query, context.context_text, body.history)
 
     async def event_generator():
-        for event in stream_completion_generator(messages, settings.groq_api_key, settings.groq_model):
+        async for event in stream_completion(
+            request.app.state.groq_client, messages, settings.groq_model,
+            temperature=settings.groq_temperature, max_tokens=settings.groq_max_tokens,
+        ):
             if event.event_type == "token":
                 yield {"event": "token", "data": event.data}
             elif event.event_type == "done":
-                done_data = {
-                    "sources": context.sources,
-                    "usage": {
-                        "remaining_requests": event.usage.remaining_requests if event.usage else None,
-                        "remaining_tokens": event.usage.remaining_tokens if event.usage else None,
-                        "reset_time": event.usage.reset_time if event.usage else None,
-                    } if event.usage else None,
-                }
+                usage_dict = event.usage.to_dict() if event.usage else None
+                if usage_dict:
+                    request.app.state.groq_limits = usage_dict
+                    save_groq_limits(settings.groq_limits_path, usage_dict)
+                done_data = {"sources": context.sources, "usage": usage_dict}
                 yield {"event": "done", "data": json.dumps(done_data)}
             elif event.event_type == "error":
                 yield {"event": "error", "data": event.data}

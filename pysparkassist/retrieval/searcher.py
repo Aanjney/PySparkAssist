@@ -1,8 +1,10 @@
+import re
 from dataclasses import dataclass
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchAny
 
+from pysparkassist.config import COLLECTION_NAME
 from pysparkassist.ingest.entities import EntityGraph
 from pysparkassist.retrieval.graph_expander import expand_entities
 
@@ -43,17 +45,18 @@ def merge_results(
     return ranked[:top_n]
 
 
+_SECTION_LINK_RE = re.compile(r'\[#?\]\([^)]*\)')
+
+
 class Searcher:
-    def __init__(self, client: QdrantClient, graph: EntityGraph, collection_name: str = "pyspark_docs"):
+    def __init__(self, client: QdrantClient, graph: EntityGraph, collection_name: str = COLLECTION_NAME):
         self.client = client
         self.graph = graph
         self.collection_name = collection_name
 
     @staticmethod
     def _clean_section(raw: str) -> str:
-        import re
-        cleaned = re.sub(r'\[#?\]\([^)]*\)', '', raw)
-        return cleaned.strip()
+        return _SECTION_LINK_RE.sub('', raw).strip()
 
     def _build_reason(self, payload: dict, via: str = "semantic similarity") -> str:
         content_type = payload.get("content_type", "documentation")

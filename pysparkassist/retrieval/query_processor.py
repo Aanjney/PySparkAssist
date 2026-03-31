@@ -2,7 +2,8 @@ import re
 
 from sentence_transformers import SentenceTransformer
 
-from pysparkassist.ingest.entities import EntityGraph, PYSPARK_CLASSES, DOMAIN_TERMS
+from pysparkassist.ingest.constants import PYSPARK_CLASSES, DOMAIN_TERMS
+from pysparkassist.ingest.entities import EntityGraph
 
 
 class QueryProcessor:

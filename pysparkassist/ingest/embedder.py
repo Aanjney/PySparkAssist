@@ -5,6 +5,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 from sentence_transformers import SentenceTransformer
 
+from pysparkassist.config import COLLECTION_NAME
 from pysparkassist.ingest.chunker import Chunk
 from pysparkassist.ingest.entities import EntityGraph, extract_entities_from_chunk
 
@@ -22,7 +23,7 @@ def embed_and_store(
     qdrant_path: str,
     sqlite_path: str,
     model_name: str = "BAAI/bge-base-en-v1.5",
-    collection_name: str = "pyspark_docs",
+    collection_name: str = COLLECTION_NAME,
     batch_size: int = 64,
 ) -> int:
     """Embed chunks, extract entities, store in Qdrant + SQLite."""
