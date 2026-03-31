@@ -17,3 +17,15 @@ def test_save_and_load_roundtrip(tmp_path):
 
 def test_load_missing_returns_none(tmp_path):
     assert load_groq_limits(str(tmp_path / "nope.json")) is None
+
+
+def test_load_corrupt_json_returns_none(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text("{not json", encoding="utf-8")
+    assert load_groq_limits(str(path)) is None
+
+
+def test_load_non_dict_json_returns_none(tmp_path):
+    path = tmp_path / "list.json"
+    path.write_text("[1, 2]", encoding="utf-8")
+    assert load_groq_limits(str(path)) is None

@@ -29,6 +29,13 @@ def test_build_context_formats_chunks():
     assert ctx.sources[1]["content_type"] == "code_example"
 
 
+def test_build_context_empty_results():
+    ctx = build_context([])
+    assert ctx.context_text == ""
+    assert ctx.sources == []
+    assert ctx.top_score == 0.0
+
+
 def test_build_context_respects_max_chunks():
     results = [
         SearchResult(chunk_id="1", content="first", score=0.9, metadata={}, retrieval_reason="match"),

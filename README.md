@@ -1,7 +1,8 @@
 # PySparkAssist
 
-**RAG-powered PySpark help that actually reads the docs.**  
-PySparkAssist scrapes official-ish documentation and Spark examples, stuffs them into a vector database, whispers entity relationships into SQLite, and answers questions with a small LLM (via [Groq](https://groq.com)) that is *required* to cite what it retrieved.
+PySparkAssist scrapes official-ish documentation and Spark examples, stuffs them into a vector database, keeps entity relationships in SQLite, and answers questions with a small LLM (via [Groq](https://groq.com)) that is *required* to cite what it retrieved.
+
+I built it because I wanted a tool I’d actually use while learning PySpark—and because something like this on the CV might help with the AI engineer roles that keep rejecting me.
 
 ---
 
@@ -40,6 +41,22 @@ python -m pysparkassist
 ```
 
 App runs on `http://localhost:8000`.
+
+---
+
+## Tests
+
+From the repo root (with `.[dev]` installed):
+
+```bash
+pytest
+```
+
+Optional coverage (`pytest-cov` ships with the dev extra):
+
+```bash
+pytest --cov=pysparkassist --cov-report=term-missing
+```
 
 ---
 
@@ -87,7 +104,7 @@ flowchart LR
 
 | Choice                     | Upside                                             | Tradeoff                                                              |
 | -------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| **Local Qdrant + SQLite**  | Simple deploy                                      | None                                                                  |
+| **Local Qdrant + SQLite**  | Simple deploy                                      | Maybe too simple idk                                                                  |
 | **Chunking heuristics**    | Fast, deterministic, good enough for docs/examples | Not semantic segmentation; occasional awkward splits                  |
 | **Entity graph as add-on** | Cheap signal for related APIs and examples         | Maintenance of seeds + heuristics; not a full knowledge graph product |
 | **Separate ingest CLI**    | Heavy work isn’t on the request path               | Additional step                                                       |

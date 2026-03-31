@@ -1,8 +1,7 @@
-import os
-
-def test_settings_loads_defaults():
-    os.environ["GROQ_API_KEY"] = "test_key"
+def test_settings_loads_defaults(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test_key")
     from pysparkassist.config import Settings
+
     s = Settings()
     assert s.groq_api_key == "test_key"
     assert isinstance(s.groq_model, str) and len(s.groq_model) > 0
