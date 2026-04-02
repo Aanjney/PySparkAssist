@@ -1,4 +1,8 @@
+# PySparkAssist — production image (Python package dir remains pysparkassist).
 FROM python:3.12-slim-bookworm
+
+LABEL org.opencontainers.image.title="PySparkAssist"
+LABEL org.opencontainers.image.description="RAG PySpark learning assistant"
 
 WORKDIR /app
 
