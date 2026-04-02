@@ -16,48 +16,51 @@ I built it because I wanted a tool I’d actually use while learning PySpark and
 
 ---
 
-## Quick start (local venv)
+## Deployment
+
+**Idea:** build search data **on the host** with a normal Python venv (ingest needs Playwright, `git`, and time). Run the **API in Docker** using that same `data/` tree on a volume — the image stays smaller and does not run ingestion.
+
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/Aanjney/PySparkAssist.git
 cd PySparkAssist
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env: GROQ_API_KEY, paths, GROQ_MODEL, EMBEDDING_MODEL
+cp env.example .env
+# Edit .env: GROQ_API_KEY, GROQ_MODEL, EMBEDDING_MODEL, paths (default ./data/... for local work)
 ```
 
-Run from the repo root so `python -m pysparkassist` finds the package.
-
-**Ingest** (downloads, chunks, embeds — needs Playwright browsers installed on the host):
+### 2. Ingest (local venv, whenever you need fresh data)
 
 ```bash
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 python -m playwright install-deps chromium && python -m playwright install chromium
 python -m pysparkassist.ingest run
 ```
 
-**Run the API + static UI**:
+This fills **`./data/`** (Qdrant files, `graph.db`, raw scrape, cached embedding weights). Run from the repo root.
+
+### 3. Run the API locally (optional)
 
 ```bash
 python -m pysparkassist
-# or: uvicorn pysparkassist.api.app:create_app --factory --host 0.0.0.0 --port 8000
+# → http://localhost:8000
 ```
 
-App listens on `http://localhost:8000`.
+### 4. Run with Docker
 
----
-
-## Docker (production)
-
-Build from the repo root:
+The **`Dockerfile`** installs only **`requirements-runtime.txt`** (no crawl4ai / Playwright). **Mount your existing `./data`** into the container at **`/app/data`** and point env paths at `/app/data/...` (see `env.example` comments or duplicate `.env` with Docker paths).
 
 ```bash
 docker build -t pysparkassist:local .
+docker run --rm -p 8000:8000 --env-file .env \
+  -v "$(pwd)/data:/app/data" \
+  pysparkassist:local
 ```
 
-The image includes **git**, **Chromium/Playwright** deps, and an **entrypoint** that runs full **ingestion** automatically if the Qdrant collection `pyspark_docs` is missing or has no points (first boot on an empty volume). Set **`SKIP_DATA_BOOTSTRAP=1`** in the environment to disable that and supply data yourself.
+If `.env` still uses `./data/...`, override for Docker, e.g. `QDRANT_PATH=/app/data/qdrant`, `SQLITE_PATH=/app/data/graph.db`, etc.
 
-Typical VPS layout: app clone under `~/services/<name>/`, compose + Caddy under `~/deploy` (that stack is **not** tracked in this app repo — use a separate infra checkout or copy the `deploy/` templates).
+On a VPS, app clone often lives under `~/services/<name>/` with Compose + Caddy under `~/deploy/` (infra templates may live outside this repo).
 
 ---
 
@@ -66,14 +69,13 @@ Typical VPS layout: app clone under `~/services/<name>/`, compose + Caddy under 
 ```text
 PySparkAssist/
 ├── Dockerfile
-├── docker-entrypoint.sh
-├── requirements.txt
-├── .env.example
+├── requirements.txt           # full stack (local dev + ingest)
+├── requirements-runtime.txt   # API-only deps for Docker
+├── env.example
 ├── frontend/
 ├── pysparkassist/
 │   ├── api/
 │   ├── config.py
-│   ├── docker_bootstrap.py   # empty Qdrant → run ingest (Docker)
 │   ├── generation/
 │   ├── ingest/
 │   ├── retrieval/
@@ -179,9 +181,9 @@ flowchart LR
 
 ## Configuration
 
-See `.env.example` for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
+See **`env.example`** for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
 
-Runtime data lives under `./data/` at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`).
+Runtime data lives under **`./data/`** at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`). Docker expects that directory mounted at **`/app/data`** with matching paths in env.
 
 ---
 
