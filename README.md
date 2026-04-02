@@ -16,20 +16,23 @@ I built it because I wanted a tool I’d actually use while learning PySpark and
 
 ---
 
-## Quick start
+## Quick start (local venv)
 
 ```bash
 git clone https://github.com/Aanjney/PySparkAssist.git
 cd PySparkAssist
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements.txt
 cp .env.example .env
-# Edit .env: GROQ_API_KEY, paths if needed, GROQ_MODEL, EMBEDDING_MODEL
+# Edit .env: GROQ_API_KEY, paths, GROQ_MODEL, EMBEDDING_MODEL
 ```
 
-**Ingest** (downloads, chunks, embeds):
+Run from the repo root so `python -m pysparkassist` finds the package.
+
+**Ingest** (downloads, chunks, embeds — needs Playwright browsers installed on the host):
 
 ```bash
+python -m playwright install-deps chromium && python -m playwright install chromium
 python -m pysparkassist.ingest run
 ```
 
@@ -40,23 +43,21 @@ python -m pysparkassist
 # or: uvicorn pysparkassist.api.app:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
-App runs on `http://localhost:8000`.
+App listens on `http://localhost:8000`.
 
 ---
 
-## Tests
+## Docker (production)
 
-From the repo root (with `.[dev]` installed):
-
-```bash
-pytest
-```
-
-Optional coverage (`pytest-cov` ships with the dev extra):
+Build from the repo root:
 
 ```bash
-pytest --cov=pysparkassist --cov-report=term-missing
+docker build -t pysparkassist:local .
 ```
+
+The image includes **git**, **Chromium/Playwright** deps, and an **entrypoint** that runs full **ingestion** automatically if the Qdrant collection `pyspark_docs` is missing or has no points (first boot on an empty volume). Set **`SKIP_DATA_BOOTSTRAP=1`** in the environment to disable that and supply data yourself.
+
+Typical VPS layout: app clone under `~/services/<name>/`, compose + Caddy under `~/deploy` (that stack is **not** tracked in this app repo — use a separate infra checkout or copy the `deploy/` templates).
 
 ---
 
@@ -64,16 +65,19 @@ pytest --cov=pysparkassist --cov-report=term-missing
 
 ```text
 PySparkAssist/
-├── frontend/                 # Alpine.js + Tailwind
+├── Dockerfile
+├── docker-entrypoint.sh
+├── requirements.txt
+├── .env.example
+├── frontend/
 ├── pysparkassist/
-│   ├── api/                  # FastAPI app, routes, IP rate limiter, Groq limits file store
-│   ├── config.py             # Settings from env (.env)
-│   ├── generation/           # System prompt, Groq streaming client
-│   ├── ingest/               # Scrape → chunk → embed → entity graph
-│   ├── retrieval/            # Query processing, search, graph expand, context packager
-│   └── __main__.py           # uvicorn entrypoint
-├── tests/
-├── pyproject.toml
+│   ├── api/
+│   ├── config.py
+│   ├── docker_bootstrap.py   # empty Qdrant → run ingest (Docker)
+│   ├── generation/
+│   ├── ingest/
+│   ├── retrieval/
+│   └── __main__.py
 └── README.md
 ```
 
@@ -175,9 +179,9 @@ flowchart LR
 
 ## Configuration
 
-See `.env.example` for variables (paths, `GROQ_`*, embedding model, rate limits, optional `GROQ_LIMITS_STARTUP_PROBE`, etc.).
+See `.env.example` for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
 
-Runtime data lives under `/data/` at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`).
+Runtime data lives under `./data/` at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`).
 
 ---
 

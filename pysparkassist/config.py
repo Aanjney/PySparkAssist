@@ -1,10 +1,18 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 COLLECTION_NAME = "pyspark_docs"
 
+_env_file = Path(".env")
+_settings_kw: dict = {}
+if _env_file.is_file():
+    _settings_kw["env_file"] = _env_file
+    _settings_kw["env_file_encoding"] = "utf-8"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(**_settings_kw)
 
     groq_api_key: str
     groq_model: str
