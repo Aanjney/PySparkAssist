@@ -23,22 +23,22 @@ I built it because I wanted a tool I’d actually use while learning PySpark and
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/Aanjney/PySparkAssist.git
-cd PySparkAssist
+git clone https://github.com/Aanjney/pysparkassist.git
+cd pysparkassist
 cp env.example .env
 # Edit .env: GROQ_API_KEY, GROQ_MODEL, EMBEDDING_MODEL, paths (default ./data/... for local work)
 ```
 
-### 2. Ingest (local venv, whenever you need fresh data)
+### 2. Ingest (local venv, whenever we need fresh data)
 
 ```bash
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate 
 pip install -r requirements.txt
 python -m playwright install-deps chromium && python -m playwright install chromium
 python -m pysparkassist.ingest run
 ```
 
-This fills **`./data/`** (Qdrant files, `graph.db`, raw scrape, cached embedding weights). Run from the repo root.
+This fills `**./data/**` (Qdrant files, `graph.db`, raw scrape, cached embedding weights). Run from the repo root.
 
 ### 3. Run the API locally (optional)
 
@@ -49,7 +49,7 @@ python -m pysparkassist
 
 ### 4. Run with Docker
 
-The **`Dockerfile`** installs only **`requirements-runtime.txt`** (no crawl4ai / Playwright). **Mount your existing `./data`** into the container at **`/app/data`** and point env paths at `/app/data/...` (see `env.example` comments or duplicate `.env` with Docker paths).
+The `**Dockerfile**` installs only `**requirements-runtime.txt**` (no crawl4ai / Playwright). **Mount the existing** `./data` into the container at `**/app/data`** and point env paths at `/app/data/...` (see `env.example` comments or duplicate `.env` with Docker paths).
 
 ```bash
 docker build -t pysparkassist:local .
@@ -59,8 +59,6 @@ docker run --rm -p 8000:8000 --env-file .env \
 ```
 
 If `.env` still uses `./data/...`, override for Docker, e.g. `QDRANT_PATH=/app/data/qdrant`, `SQLITE_PATH=/app/data/graph.db`, etc.
-
-On a VPS, app clone often lives under `~/services/<name>/` with Compose + Caddy under `~/deploy/` (infra templates may live outside this repo).
 
 ---
 
@@ -181,9 +179,9 @@ flowchart LR
 
 ## Configuration
 
-See **`env.example`** for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
+See `**env.example`** for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
 
-Runtime data lives under **`./data/`** at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`). Docker expects that directory mounted at **`/app/data`** with matching paths in env.
+Runtime data lives under `**./data/`** at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`). Docker expects that directory mounted at `**/app/data`** with matching paths in env.
 
 ---
 
