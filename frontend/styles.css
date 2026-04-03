@@ -1,3 +1,31 @@
+/* Mobile: dynamic viewport, notches, virtual keyboard (see app.js --keyboard-pad) */
+:root {
+    --keyboard-pad: 0px;
+}
+html {
+    height: 100%;
+}
+/* Lock the shell to one viewport: only the message pane scrolls; composer stays visible (no document scroll). */
+body.layout-root {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+}
+.nav-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+}
+.composer-pad {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-pad, 0px));
+}
+
+/* Placeholder can wrap to two lines before input: min height + line-height avoid vertical clipping (esp. with items-center row). */
+.composer-textarea {
+    min-height: 3rem;
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -52,20 +80,15 @@
     font-size: 0.85rem;
     line-height: 1.6;
 }
-/* Plain (un-highlighted) fenced code while streaming */
-.prose-spark pre code:not(.hljs) {
+/* Plain (un-highlighted) streaming fences use text color; .hljs leaves color to the theme */
+.prose-spark pre code {
     background: none;
     padding: 0;
     border-radius: 0;
     font-size: inherit;
-    color: #e6edf3;
 }
-/* Let highlight.js github-dark theme own colors on code.hljs and inner spans */
-.prose-spark pre code.hljs {
-    background: none;
-    padding: 0;
-    border-radius: 0;
-    font-size: inherit;
+.prose-spark pre code:not(.hljs) {
+    color: #e6edf3;
 }
 .prose-spark code {
     font-size: 0.875rem;

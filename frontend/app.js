@@ -9,6 +9,26 @@ const ERROR_MESSAGES = {
     service_error: 'Something went wrong. Please try again shortly.',
 };
 
+/** Chip + dot classes keyed by _usageSeverity() */
+const USAGE_SEVERITY_STYLES = {
+    loading: {
+        chip: 'bg-surface-container dark:bg-surface-container-dark text-on-surface-variant dark:text-on-surface-variant-dark',
+        dot: 'bg-gray-400',
+    },
+    critical: {
+        chip: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        dot: 'bg-red-500',
+    },
+    warning: {
+        chip: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+        dot: 'bg-yellow-500',
+    },
+    ok: {
+        chip: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        dot: 'bg-green-500',
+    },
+};
+
 function escapeHtmlForCode(s) {
     return String(s)
         .replace(/&/g, '&amp;')
@@ -74,9 +94,33 @@ function chatApp() {
                 document.documentElement.classList.toggle('dark', val);
             });
 
+            this._bindViewportKeyboardPad();
             this.fetchLimits();
             setInterval(() => { this._tick++; this.tickLimits(); }, 1000);
             setInterval(() => this.fetchLimits(), 60000);
+            this.$nextTick(() => this.autoResize());
+        },
+
+        /** iOS/Android: space obscured by virtual keyboard → CSS var --keyboard-pad on .composer-pad */
+        _bindViewportKeyboardPad() {
+            const setPad = () => {
+                const vv = window.visualViewport;
+                const px = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+                document.documentElement.style.setProperty('--keyboard-pad', px + 'px');
+            };
+            setPad();
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', setPad);
+                window.visualViewport.addEventListener('scroll', setPad);
+            }
+            window.addEventListener('orientationchange', () => setTimeout(setPad, 250));
+        },
+
+        onComposerFocus() {
+            requestAnimationFrame(() => {
+                const el = this.$refs.inputArea;
+                if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
         },
 
         toggleDarkMode() {
@@ -117,22 +161,20 @@ function chatApp() {
             this.groqUsageUpdatedAt = new Date();
         },
 
+        _applyExpiredLimitReset(now, deadlineKey, limitKey, remainingKey) {
+            const deadline = this[deadlineKey];
+            if (!deadline || now < deadline) return;
+            if (this.groqUsage[limitKey] != null) {
+                this.groqUsage = { ...this.groqUsage, [remainingKey]: this.groqUsage[limitKey] };
+            }
+            this[deadlineKey] = null;
+        },
+
         tickLimits() {
             if (!this.groqUsage) return;
             const now = Date.now();
-
-            if (this.resetTokensAt && now >= this.resetTokensAt) {
-                if (this.groqUsage.limit_tokens != null) {
-                    this.groqUsage = { ...this.groqUsage, remaining_tokens: this.groqUsage.limit_tokens };
-                }
-                this.resetTokensAt = null;
-            }
-            if (this.resetRequestsAt && now >= this.resetRequestsAt) {
-                if (this.groqUsage.limit_requests != null) {
-                    this.groqUsage = { ...this.groqUsage, remaining_requests: this.groqUsage.limit_requests };
-                }
-                this.resetRequestsAt = null;
-            }
+            this._applyExpiredLimitReset(now, 'resetTokensAt', 'limit_tokens', 'remaining_tokens');
+            this._applyExpiredLimitReset(now, 'resetRequestsAt', 'limit_requests', 'remaining_requests');
         },
 
         _parseResetSecs(val) {
@@ -173,11 +215,26 @@ function chatApp() {
             return String(n);
         },
 
-        usageBadgeText() {
+        _usageBadgeFormattedPair() {
             void this._tick;
-            if (!this.groqUsage) return 'Loading...';
-            return this.formatNumber(this.groqUsage.remaining_requests) + ' req/day · '
-                 + this.formatNumber(this.groqUsage.remaining_tokens) + ' tok/min';
+            if (!this.groqUsage) return null;
+            return {
+                req: this.formatNumber(this.groqUsage.remaining_requests),
+                tok: this.formatNumber(this.groqUsage.remaining_tokens),
+            };
+        },
+
+        usageBadgeText() {
+            const p = this._usageBadgeFormattedPair();
+            if (!p) return 'Loading...';
+            return p.req + ' req/day · ' + p.tok + ' tok/min';
+        },
+
+        /** One-line pill for narrow nav (< sm); keeps the usage chip shrink-wrapped. */
+        usageBadgeTextCompact() {
+            const p = this._usageBadgeFormattedPair();
+            if (!p) return '…';
+            return p.req + ' · ' + p.tok;
         },
 
         _usageSeverity() {
@@ -190,16 +247,11 @@ function chatApp() {
         },
 
         usageColor() {
-            return {
-                loading: 'bg-surface-container dark:bg-surface-container-dark text-on-surface-variant dark:text-on-surface-variant-dark',
-                critical: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
-                warning: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
-                ok: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300',
-            }[this._usageSeverity()];
+            return USAGE_SEVERITY_STYLES[this._usageSeverity()].chip;
         },
 
         usageDotColor() {
-            return { loading: 'bg-gray-400', critical: 'bg-red-500', warning: 'bg-yellow-500', ok: 'bg-green-500' }[this._usageSeverity()];
+            return USAGE_SEVERITY_STYLES[this._usageSeverity()].dot;
         },
 
         // ── Textarea auto-resize ───────────────────────────────
@@ -249,46 +301,17 @@ function chatApp() {
 
         // ── Chat ───────────────────────────────────────────────
 
-        _autoFollow: true,
-        _scrollLocked: false,
-        _scrollPending: false,
-
+        /** Scroll so message `idx` is near the top of the chat pane (read from start of reply; no auto-scroll as tokens stream). */
         scrollToMessage(idx) {
-            this._autoFollow = false;
-            this._scrollLocked = true;
             this.$nextTick(() => {
                 const area = this.$refs.chatArea;
                 if (!area) return;
                 const el = area.querySelectorAll(':scope > div')[idx];
                 if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const top = el.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop;
+                    area.scrollTo({ top: Math.max(0, top - 8), behavior: 'smooth' });
                 } else {
                     area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
-                    this._autoFollow = true;
-                }
-                setTimeout(() => { this._scrollLocked = false; }, 600);
-            });
-        },
-
-        _isNearBottom() {
-            const area = this.$refs.chatArea;
-            if (!area) return true;
-            return area.scrollHeight - area.scrollTop - area.clientHeight < 80;
-        },
-
-        onChatScroll() {
-            if (this._scrollLocked) return;
-            if (this._isNearBottom()) this._autoFollow = true;
-        },
-
-        scrollIfFollowing() {
-            if (!this._autoFollow || this._scrollPending) return;
-            this._scrollPending = true;
-            requestAnimationFrame(() => {
-                this._scrollPending = false;
-                if (this._autoFollow) {
-                    const area = this.$refs.chatArea;
-                    if (area) area.scrollTo({ top: area.scrollHeight });
                 }
             });
         },
@@ -304,10 +327,7 @@ function chatApp() {
 
             this.messages.push({ role: 'user', content: query });
             this.input = '';
-            this.$nextTick(() => {
-                const ta = this.$refs.inputArea;
-                if (ta) ta.style.height = 'auto';
-            });
+            this.$nextTick(() => this.autoResize());
             this.isStreaming = true;
 
             const assistantMsg = { role: 'assistant', content: '', renderedHtml: '', sources: [], streaming: true };
@@ -358,7 +378,7 @@ function chatApp() {
                     if (done) break;
 
                     buffer += decoder.decode(value, { stream: true });
-                    buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    buffer = buffer.replace(/\r\n|\r/g, '\n');
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
 
@@ -379,7 +399,6 @@ function chatApp() {
                             if (eventType === 'token') {
                                 this.messages[msgIndex].content += data;
                                 renderDirty = true;
-                                this.scrollIfFollowing();
                             } else if (eventType === 'done') {
                                 try {
                                     const d = JSON.parse(data);
@@ -406,13 +425,11 @@ function chatApp() {
 
                 this.messages[msgIndex].streaming = false;
             } catch (err) {
-                this.messages[msgIndex].content = 'Connection error. Please check your network and try again.';
-                this.messages[msgIndex].streaming = false;
+                abort('Connection error. Please check your network and try again.');
             } finally {
                 clearInterval(renderTimer);
                 this.messages[msgIndex].renderedHtml = this.renderMarkdown(this.messages[msgIndex].content);
                 this.isStreaming = false;
-                this.scrollIfFollowing();
             }
         },
     }

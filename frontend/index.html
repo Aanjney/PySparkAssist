@@ -2,7 +2,7 @@
 <html class="light" lang="en" x-cloak x-data="chatApp()" :class="{ 'dark': darkMode }">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
     <title>PySparkAssist</title>
     <link rel="icon" href="favicon.svg?v=1" type="image/svg+xml"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
@@ -51,37 +51,41 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css"/>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/languages/python.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=9"/>
+    <link rel="stylesheet" href="styles.css?v=13"/>
     <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body class="bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark h-screen flex flex-col font-body">
+<body class="layout-root bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark flex flex-col font-body">
 
     <!-- Nav — in-flow flex child, NOT fixed -->
-    <nav class="flex-shrink-0 relative z-50 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-outline-variant/10">
-        <div class="flex justify-between items-center h-14 w-full max-w-screen-2xl mx-auto px-6">
-            <span class="font-headline text-2xl font-bold tracking-tighter text-spark-blue dark:text-[#4a7cc9]">
+    <nav class="nav-safe flex-shrink-0 relative z-50 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-outline-variant/10">
+        <!-- Single row: title shrink-0; usage pill w-fit (never flex-grow); icons. Narrow = compact usage label via app.js. -->
+        <div class="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 min-h-14 h-14 w-full max-w-screen-2xl mx-auto px-4 sm:px-6">
+            <span class="font-headline text-sm sm:text-xl md:text-2xl font-bold tracking-tighter text-spark-blue dark:text-[#4a7cc9] shrink-0">
                 Py<span class="text-spark-orange">Spark</span>Assist
             </span>
-            <div class="flex items-center gap-3">
-                <button @click="showUsagePanel = !showUsagePanel"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+            <div class="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
+                <button type="button" @click="showUsagePanel = !showUsagePanel"
+                    class="inline-flex w-fit items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-medium transition-colors"
                     :class="usageColor()">
-                    <span class="w-2 h-2 rounded-full animate-pulse" :class="usageDotColor()" x-show="!groqUsage"></span>
-                    <span class="w-2 h-2 rounded-full" :class="usageDotColor()" x-show="groqUsage"></span>
-                    <span x-text="usageBadgeText()"></span>
+                    <span class="w-2 h-2 rounded-full animate-pulse shrink-0" :class="usageDotColor()" x-show="!groqUsage"></span>
+                    <span class="w-2 h-2 rounded-full shrink-0" :class="usageDotColor()" x-show="groqUsage"></span>
+                    <span class="sm:hidden truncate min-w-0" x-text="usageBadgeTextCompact()"></span>
+                    <span class="hidden sm:inline truncate min-w-0" x-text="usageBadgeText()"></span>
                 </button>
-                <button @click="toggleDarkMode()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors">
-                    <span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant-dark" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
-                </button>
-                <a href="https://github.com/Aanjney/PySparkAssist" target="_blank" rel="noopener"
-                   class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors"
-                   title="View on GitHub">
-                    <svg class="w-5 h-5 text-on-surface-variant dark:text-on-surface-variant-dark" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                </a>
+                <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+                    <button type="button" @click="toggleDarkMode()" class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors">
+                        <span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant-dark text-[22px] sm:text-2xl" x-text="darkMode ? 'light_mode' : 'dark_mode'"></span>
+                    </button>
+                    <a href="https://github.com/Aanjney/PySparkAssist" target="_blank" rel="noopener"
+                       class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-surface-container dark:hover:bg-surface-container-dark transition-colors"
+                       title="View on GitHub">
+                        <svg class="w-[18px] h-[18px] sm:w-5 sm:h-5 text-on-surface-variant dark:text-on-surface-variant-dark" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    </a>
+                </div>
             </div>
         </div>
         <div x-show="showUsagePanel && groqUsage" x-transition @click.outside="showUsagePanel = false"
-            class="absolute right-6 top-14 bg-surface-container-lowest dark:bg-surface-container-lowest-dark rounded-lg p-2.5 shadow-lg shadow-on-surface/5 text-xs w-[230px] space-y-1">
+            class="absolute left-3 right-3 top-full mt-0.5 sm:left-auto sm:right-6 sm:w-[230px] bg-surface-container-lowest dark:bg-surface-container-lowest-dark rounded-lg p-2.5 shadow-lg shadow-on-surface/5 text-xs space-y-1">
             <div class="flex justify-between gap-3 tabular-nums"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Requests today</span><span x-text="groqUsage?.remaining_requests != null ? groqUsage.remaining_requests + '/' + (groqUsage?.limit_requests ?? '') : '—'"></span></div>
             <div class="flex justify-between gap-3 tabular-nums"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Tokens / min</span><span x-text="groqUsage?.remaining_tokens != null ? formatNumber(groqUsage.remaining_tokens) + '/' + formatNumber(groqUsage.limit_tokens) : '—'"></span></div>
             <div class="flex justify-between gap-3 pt-0.5 border-t border-outline-variant/20"><span class="text-on-surface-variant dark:text-on-surface-variant-dark">Resets in</span><span class="text-right font-medium tabular-nums" x-text="countdownText()"></span></div>
@@ -90,14 +94,14 @@
     </nav>
 
     <!-- Main — fills remaining viewport height -->
-    <main class="flex-1 flex flex-col items-center min-h-0 px-6">
+    <main class="flex-1 flex flex-col items-center min-h-0 px-4 sm:px-6">
         <div class="w-full max-w-4xl flex flex-col flex-1 min-h-0">
             <div class="flex-1 flex flex-col min-h-0"
                  :class="messages.length === 0 ? 'items-center justify-center pb-16' : ''">
 
                 <!-- Welcome (empty state) -->
                 <header x-show="messages.length === 0" class="text-center mb-10">
-                    <h1 class="font-headline text-5xl font-extrabold tracking-tighter text-on-surface dark:text-on-surface-dark mb-4">
+                    <h1 class="font-headline text-3xl sm:text-5xl font-extrabold tracking-tighter text-on-surface dark:text-on-surface-dark mb-4 px-1">
                         Py<span class="text-[#E65100]">Spark</span>Assist
                     </h1>
                     <p class="text-on-surface-variant dark:text-on-surface-variant-dark text-lg">
@@ -106,7 +110,7 @@
                 </header>
 
                 <!-- Scrollable messages (chat state) -->
-                <div x-show="messages.length > 0" x-ref="chatArea" @scroll="onChatScroll()"
+                <div x-show="messages.length > 0" x-ref="chatArea"
                      class="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-8 px-2 pb-4 pt-4">
                     <template x-for="(msg, idx) in messages" :key="idx">
                         <div>
@@ -116,7 +120,7 @@
                                 </div>
                             </div>
                             <div x-show="msg.role === 'assistant'" class="flex justify-start">
-                                <div class="bg-surface-container-lowest dark:bg-surface-container-lowest-dark p-6 rounded-xl max-w-[90%] flex gap-5 overflow-hidden">
+                                <div class="bg-surface-container-lowest dark:bg-surface-container-lowest-dark p-4 sm:p-6 rounded-xl max-w-[90%] flex gap-3 sm:gap-5 overflow-hidden">
                                     <div class="flex-shrink-0 w-8 h-8 bg-spark-blue dark:bg-[#4a7cc9] rounded-lg flex items-center justify-center mt-1">
                                         <span class="material-symbols-outlined text-spark-orange text-sm" style='font-variation-settings: "FILL" 1;'>bolt</span>
                                     </div>
@@ -169,18 +173,19 @@
                 </div>
 
                 <!-- Input (single instance — centered in empty state, pinned at bottom in chat state) -->
-                <div class="w-full" :class="messages.length > 0 ? 'flex-shrink-0 pt-3 pb-3 bg-surface dark:bg-surface-dark' : ''">
+                <div class="w-full composer-pad" :class="messages.length > 0 ? 'flex-shrink-0 pt-3 bg-surface dark:bg-surface-dark' : ''">
                     <form @submit.prevent="sendMessage()" class="relative group">
-                        <div class="bg-surface-container-high dark:bg-surface-container-high-dark rounded-2xl w-full p-2 pl-6 flex items-end gap-4 transition-all duration-300 focus-within:bg-surface-container-lowest dark:focus-within:bg-surface-container-lowest-dark focus-within:shadow-[0_40px_60px_-15px_rgba(43,52,55,0.08)]">
+                        <div class="bg-surface-container-high dark:bg-surface-container-high-dark rounded-2xl w-full p-2 pl-4 sm:pl-6 flex items-center gap-2 sm:gap-4 transition-all duration-300 focus-within:bg-surface-container-lowest dark:focus-within:bg-surface-container-lowest-dark focus-within:shadow-[0_40px_60px_-15px_rgba(43,52,55,0.08)]">
                             <textarea x-model="input" :disabled="isStreaming"
                                 x-ref="inputArea"
                                 @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); sendMessage(); }"
                                 @input="autoResize($event)"
+                                @focus="onComposerFocus()"
                                 rows="1"
-                                class="bg-transparent border-none focus:ring-0 flex-1 text-on-surface dark:text-on-surface-dark text-lg placeholder:text-on-surface-variant/60 dark:placeholder:text-on-surface-variant-dark/60 font-medium py-3 resize-none overflow-y-auto"
+                                class="composer-textarea bg-transparent border-none focus:ring-0 flex-1 text-on-surface dark:text-on-surface-dark text-[15px] sm:text-lg placeholder:text-on-surface-variant/60 dark:placeholder:text-on-surface-variant-dark/60 font-medium py-2.5 sm:py-3 resize-none overflow-y-auto min-w-0 leading-normal"
                                 style="max-height: 150px"
-                                placeholder="Ask me anything about PySpark..."></textarea>
-                            <div class="flex items-center gap-2 pr-2 pb-1.5">
+                                placeholder="Ask about PySpark"></textarea>
+                            <div class="flex items-center pr-2 shrink-0">
                                 <button type="submit" :disabled="isStreaming || !input.trim()"
                                     class="w-12 h-12 bg-gradient-to-br from-spark-orange to-spark-blue text-white rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-spark-orange/20 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <span class="material-symbols-outlined">send</span>
@@ -193,6 +198,6 @@
         </div>
     </main>
 
-    <script src="app.js?v=17"></script>
+    <script src="app.js?v=23"></script>
 </body>
 </html>
