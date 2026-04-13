@@ -60,8 +60,8 @@
     <nav class="nav-safe flex-shrink-0 relative z-50 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-outline-variant/10">
         <!-- Single row: title shrink-0; usage pill w-fit (never flex-grow); icons. Narrow = compact usage label via app.js. -->
         <div class="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 min-h-14 h-14 w-full max-w-screen-2xl mx-auto px-4 sm:px-6">
-            <span class="font-headline text-sm sm:text-xl md:text-2xl font-bold tracking-tighter text-spark-blue dark:text-[#4a7cc9] shrink-0">
-                Py<span class="text-spark-orange">Spark</span>Assist
+            <span class="font-headline text-sm sm:text-xl md:text-2xl font-bold tracking-tighter shrink-0">
+                <span class="text-spark-blue dark:text-spark-blue-dark">Py</span><span class="text-spark-orange">Spark</span><span class="text-spark-blue dark:text-spark-blue-dark">Assist</span>
             </span>
             <div class="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
                 <button type="button" @click="showUsagePanel = !showUsagePanel"
@@ -101,8 +101,8 @@
 
                 <!-- Welcome (empty state) -->
                 <header x-show="messages.length === 0" class="text-center mb-10">
-                    <h1 class="font-headline text-3xl sm:text-5xl font-extrabold tracking-tighter text-on-surface dark:text-on-surface-dark mb-4 px-1">
-                        Py<span class="text-[#E65100]">Spark</span>Assist
+                    <h1 class="font-headline text-3xl sm:text-5xl font-extrabold tracking-tighter mb-4 px-1">
+                        <span class="text-spark-blue dark:text-spark-blue-dark">Py</span><span class="text-spark-orange">Spark</span><span class="text-spark-blue dark:text-spark-blue-dark">Assist</span>
                     </h1>
                     <p class="text-on-surface-variant dark:text-on-surface-variant-dark text-lg">
                         Get your PySpark queries answered from the official documentation
