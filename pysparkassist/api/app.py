@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from pysparkassist.api.routes import router
 from pysparkassist.api.rate_limiter import RateLimiter
 from pysparkassist.api.groq_limits_store import load_groq_limits, save_groq_limits
 from pysparkassist.generation.groq_client import fetch_rate_limits_from_groq
+from pysparkassist.ingest.manifest import load_manifest, validate_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +21,33 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+
+    if os.environ.get("SKIP_MANIFEST_CHECK") != "1":
+        manifest_path = Path(settings.data_dir) / "manifest.json"
+        if not manifest_path.is_file():
+            logger.error("Ingest manifest missing at %s", manifest_path)
+            raise RuntimeError(f"Ingest manifest missing: {manifest_path}")
+        manifest = load_manifest(manifest_path)
+        validate_manifest(manifest, settings)
+        app.state.manifest_ok = True
+        logger.info(
+            "Manifest OK: %d chunks, model=%s, dim=%d",
+            manifest.chunk_count,
+            manifest.embedding_model,
+            manifest.embedding_dimension,
+        )
+    else:
+        app.state.manifest_ok = False
+        logger.warning("SKIP_MANIFEST_CHECK=1 — manifest validation skipped")
+
     logger.info("Loading embedding model: %s", settings.embedding_model)
 
     from sentence_transformers import SentenceTransformer
     from qdrant_client import QdrantClient
     from pysparkassist.ingest.entities import EntityGraph
+    from pysparkassist.chat.service import ChatService
     from pysparkassist.retrieval.query_processor import QueryProcessor
-    from pysparkassist.retrieval.searcher import Searcher
+    from pysparkassist.retrieval.retriever import Retriever
 
     local_model_path = Path("data/models") / settings.embedding_model.replace("/", "_")
     if local_model_path.exists():
@@ -37,16 +59,27 @@ async def lifespan(app: FastAPI):
         local_model_path.parent.mkdir(parents=True, exist_ok=True)
         model.save(str(local_model_path))
         logger.info("Model saved to %s", local_model_path)
-    qdrant = QdrantClient(path=settings.qdrant_path)
+    qdrant = QdrantClient(url=settings.qdrant_url)
     graph = EntityGraph(settings.sqlite_path)
+    app.state.qdrant = qdrant
 
     groq_client = AsyncGroq(api_key=settings.groq_api_key)
 
     app.state.settings = settings
     app.state.groq_client = groq_client
     app.state.limiter = RateLimiter(max_requests=settings.rate_limit_rpm, window_seconds=60)
-    app.state.query_processor = QueryProcessor(model=model, graph=graph)
-    app.state.searcher = Searcher(client=qdrant, graph=graph)
+
+    def on_usage(usage_dict: dict) -> None:
+        app.state.groq_limits = usage_dict
+        save_groq_limits(settings.groq_limits_path, usage_dict)
+
+    app.state.chat_service = ChatService(
+        settings=settings,
+        query_processor=QueryProcessor(model=model, graph=graph),
+        retriever=Retriever(client=qdrant, graph=graph, settings=settings),
+        groq_client=groq_client,
+        on_usage=on_usage,
+    )
 
     loaded = load_groq_limits(settings.groq_limits_path)
     app.state.groq_limits = loaded
