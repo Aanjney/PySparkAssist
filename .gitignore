@@ -1,5 +1,5 @@
-# Python
-venv/
+# Python / uv
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -18,7 +18,13 @@ htmlcov/
 /data/
 
 # Docs (working documents)
-docs/
+docs/*
+!docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/specs/*.md
+!docs/superpowers/plans/
+!docs/superpowers/plans/*.md
 
 # IDE
 .vscode/
@@ -30,3 +36,9 @@ Thumbs.db
 
 # Infra for this app lives in a separate clone (e.g. ~/deploy); not tracked here
 deploy/
+
+# Eval reports (generated)
+eval_reports/
+
+# Git worktrees (subagent-driven development)
+.worktrees/
