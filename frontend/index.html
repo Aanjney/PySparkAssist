@@ -45,20 +45,18 @@
         },
     }
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css"/>
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/languages/python.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css"/>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/languages/python.min.js"></script>
     <link rel="stylesheet" href="styles.css?v=13"/>
     <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="layout-root bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark flex flex-col font-body">
 
-    <!-- Nav — in-flow flex child, NOT fixed -->
     <nav class="nav-safe flex-shrink-0 relative z-50 bg-white/70 dark:bg-[#1e1e1e]/70 backdrop-blur-xl border-b border-outline-variant/10">
-        <!-- Single row: title shrink-0; usage pill w-fit (never flex-grow); icons. Narrow = compact usage label via app.js. -->
         <div class="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 min-h-14 h-14 w-full max-w-screen-2xl mx-auto px-4 sm:px-6">
             <span class="font-headline text-sm sm:text-xl md:text-2xl font-bold tracking-tighter shrink-0">
                 <span class="text-spark-blue dark:text-spark-blue-dark">Py</span><span class="text-spark-orange">Spark</span><span class="text-spark-blue dark:text-spark-blue-dark">Assist</span>
@@ -93,13 +91,11 @@
         </div>
     </nav>
 
-    <!-- Main — fills remaining viewport height -->
     <main class="flex-1 flex flex-col items-center min-h-0 px-4 sm:px-6">
         <div class="w-full max-w-4xl flex flex-col flex-1 min-h-0">
             <div class="flex-1 flex flex-col min-h-0"
                  :class="messages.length === 0 ? 'items-center justify-center pb-16' : ''">
 
-                <!-- Welcome (empty state) -->
                 <header x-show="messages.length === 0" class="text-center mb-10">
                     <h1 class="font-headline text-3xl sm:text-5xl font-extrabold tracking-tighter mb-4 px-1">
                         <span class="text-spark-blue dark:text-spark-blue-dark">Py</span><span class="text-spark-orange">Spark</span><span class="text-spark-blue dark:text-spark-blue-dark">Assist</span>
@@ -109,7 +105,6 @@
                     </p>
                 </header>
 
-                <!-- Scrollable messages (chat state) -->
                 <div x-show="messages.length > 0" x-ref="chatArea"
                      class="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-8 px-2 pb-4 pt-4">
                     <template x-for="(msg, idx) in messages" :key="idx">
@@ -172,7 +167,6 @@
                     </div>
                 </div>
 
-                <!-- Input (single instance — centered in empty state, pinned at bottom in chat state) -->
                 <div class="w-full composer-pad" :class="messages.length > 0 ? 'flex-shrink-0 pt-3 bg-surface dark:bg-surface-dark' : ''">
                     <form @submit.prevent="sendMessage()" class="relative group">
                         <div class="bg-surface-container-high dark:bg-surface-container-high-dark rounded-2xl w-full p-2 pl-4 sm:pl-6 flex items-center gap-2 sm:gap-4 transition-all duration-300 focus-within:bg-surface-container-lowest dark:focus-within:bg-surface-container-lowest-dark focus-within:shadow-[0_40px_60px_-15px_rgba(43,52,55,0.08)]">
@@ -198,6 +192,6 @@
         </div>
     </main>
 
-    <script src="app.js?v=23"></script>
+    <script src="app.js?v=24"></script>
 </body>
 </html>

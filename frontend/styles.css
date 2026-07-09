@@ -1,11 +1,9 @@
-/* Mobile: dynamic viewport, notches, virtual keyboard (see app.js --keyboard-pad) */
 :root {
     --keyboard-pad: 0px;
 }
 html {
     height: 100%;
 }
-/* Lock the shell to one viewport: only the message pane scrolls; composer stays visible (no document scroll). */
 body.layout-root {
     height: 100dvh;
     max-height: 100dvh;
@@ -21,7 +19,6 @@ body.layout-root {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-pad, 0px));
 }
 
-/* Placeholder can wrap to two lines before input: min height + line-height avoid vertical clipping (esp. with items-center row). */
 .composer-textarea {
     min-height: 3rem;
 }
@@ -80,7 +77,6 @@ body.layout-root {
     font-size: 0.85rem;
     line-height: 1.6;
 }
-/* Plain (un-highlighted) streaming fences use text color; .hljs leaves color to the theme */
 .prose-spark pre code {
     background: none;
     padding: 0;
@@ -109,7 +105,6 @@ body.layout-root {
 .dark .prose-spark th { border-bottom-color: #3a3a3a; }
 .dark .prose-spark td { border-bottom-color: #2c2c2c; }
 
-/* Source badges */
 .source-badge {
     display: inline-block;
     padding: 1px 6px;

@@ -9,7 +9,6 @@ const ERROR_MESSAGES = {
     service_error: 'Something went wrong. Please try again shortly.',
 };
 
-/** Chip + dot classes keyed by _usageSeverity() */
 const USAGE_SEVERITY_STYLES = {
     loading: {
         chip: 'bg-surface-container dark:bg-surface-container-dark text-on-surface-variant dark:text-on-surface-variant-dark',
@@ -37,7 +36,6 @@ function escapeHtmlForCode(s) {
         .replace(/"/g, '&quot;');
 }
 
-/** Highlight fenced code during markdown parse so x-html receives real hljs spans (DOM post-pass was flaky with Alpine + streaming). */
 (function configureMarkdownHighlighter() {
     if (typeof marked === 'undefined' || typeof hljs === 'undefined') return;
 
@@ -46,30 +44,33 @@ function escapeHtmlForCode(s) {
             code({ text, lang, escaped }) {
                 const langToken = ((lang || '').match(/[^\s]+/) || [])[0] || '';
                 const langNorm = langToken.toLowerCase();
-                const langKey = langNorm && hljs.getLanguage(langNorm) ? langNorm : 'python';
                 const source = (text || '').replace(/\n$/, '') + '\n';
 
                 let highlighted;
-                let outLang = langKey;
+                let outLang = 'python';
                 try {
-                    highlighted = hljs.highlight(source, { language: langKey, ignoreIllegals: true }).value;
-                } catch (e1) {
-                    try {
-                        const r = hljs.highlightAuto(source, ['python', 'bash', 'sql', 'json', 'yaml', 'xml']);
-                        highlighted = r.value;
-                        outLang = (r.language || 'plaintext').toLowerCase();
-                    } catch (e2) {
-                        const safe = escaped ? source : escapeHtmlForCode(source);
-                        return '<pre><code>' + safe + '</code></pre>\n';
-                    }
+                    const r = langNorm && hljs.getLanguage(langNorm)
+                        ? hljs.highlight(source, { language: langNorm, ignoreIllegals: true })
+                        : hljs.highlightAuto(source, ['python', 'bash', 'sql', 'json', 'yaml', 'xml']);
+                    highlighted = r.value;
+                    outLang = (r.language || langNorm || 'plaintext').toLowerCase();
+                } catch {
+                    const safe = escaped ? source : escapeHtmlForCode(source);
+                    return '<pre><code>' + safe + '</code></pre>\n';
                 }
 
-                const cls = String(outLang).replace(/[^a-z0-9_-]/g, '') || 'plaintext';
+                const cls = outLang.replace(/[^a-z0-9_-]/g, '') || 'plaintext';
                 return '<pre><code class="hljs language-' + cls + '">' + highlighted + '</code></pre>\n';
             },
         },
     });
 })();
+
+if (typeof DOMPurify !== 'undefined') {
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+        if (node.tagName === 'A') node.setAttribute('rel', 'noopener noreferrer');
+    });
+}
 
 function chatApp() {
     return {
@@ -101,7 +102,6 @@ function chatApp() {
             this.$nextTick(() => this.autoResize());
         },
 
-        /** iOS/Android: space obscured by virtual keyboard → CSS var --keyboard-pad on .composer-pad */
         _bindViewportKeyboardPad() {
             const setPad = () => {
                 const vv = window.visualViewport;
@@ -126,8 +126,6 @@ function chatApp() {
         toggleDarkMode() {
             this.darkMode = !this.darkMode;
         },
-
-        // ── Limits ─────────────────────────────────────────────
 
         async fetchLimits() {
             try {
@@ -230,7 +228,6 @@ function chatApp() {
             return p.req + ' req/day · ' + p.tok + ' tok/min';
         },
 
-        /** One-line pill for narrow nav (< sm); keeps the usage chip shrink-wrapped. */
         usageBadgeTextCompact() {
             const p = this._usageBadgeFormattedPair();
             if (!p) return '…';
@@ -254,16 +251,12 @@ function chatApp() {
             return USAGE_SEVERITY_STYLES[this._usageSeverity()].dot;
         },
 
-        // ── Textarea auto-resize ───────────────────────────────
-
         autoResize(event) {
             const el = event?.target || this.$refs.inputArea;
             if (!el) return;
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 150) + 'px';
         },
-
-        // ── Markdown rendering ─────────────────────────────────
 
         normalizeMarkdown(raw) {
             const lines = raw.split('\n');
@@ -295,13 +288,10 @@ function chatApp() {
             const raw = marked.parse(normalized, { breaks: false, gfm: true });
             return DOMPurify.sanitize(raw, {
                 ADD_TAGS: ['pre', 'code', 'span'],
-                ADD_ATTR: ['class'],
+                ADD_ATTR: ['class', 'href', 'target', 'rel'],
             });
         },
 
-        // ── Chat ───────────────────────────────────────────────
-
-        /** Scroll so message `idx` is near the top of the chat pane (read from start of reply; no auto-scroll as tokens stream). */
         scrollToMessage(idx) {
             this.$nextTick(() => {
                 const area = this.$refs.chatArea;
