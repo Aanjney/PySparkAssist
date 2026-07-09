@@ -1,6 +1,8 @@
 .git
 .github
+.worktrees
 venv
+.venv
 __pycache__
 *.pyc
 .pytest_cache
@@ -11,7 +13,7 @@ dist
 build
 data
 .env
-deploy/.env
 tests
 docs
-deploy
+eval_reports
+LICENSE
