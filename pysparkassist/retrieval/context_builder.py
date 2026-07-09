@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
 
-from pysparkassist.retrieval.searcher import SearchResult
+from pysparkassist.retrieval.models import RetrievedChunk
 
 _ANCHOR_URL_RE = re.compile(r'\[#?\]\((https?://[^\s"]+)')
 _LINK_ARTIFACTS_RE = re.compile(r'\[#?\]\([^)]*\)')
@@ -26,7 +26,6 @@ _NAV_PATTERNS = [
 
 
 def _clean_content(text: str) -> str:
-    """Strip navigation boilerplate and page chrome from scraped markdown."""
     for pattern in _NAV_PATTERNS:
         text = pattern.sub('', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
@@ -34,7 +33,6 @@ def _clean_content(text: str) -> str:
 
 
 def _dedup_sources(sources: list[dict]) -> list[dict]:
-    """Merge sources with the same title + content_type, combining versions."""
     seen: dict[tuple, dict] = {}
     order: list[tuple] = []
 
@@ -64,10 +62,9 @@ class ContextResult:
 
 
 def build_context(
-    results: list[SearchResult],
+    results: list[RetrievedChunk],
     max_chunks: int = 5,
 ) -> ContextResult:
-    """Assemble retrieved chunks into a context string with source metadata."""
     filtered = results[:max_chunks]
 
     if not filtered:
@@ -77,11 +74,11 @@ def build_context(
     raw_sources: list[dict] = []
 
     for i, result in enumerate(filtered, 1):
-        content_type = result.metadata.get("content_type", "documentation")
-        raw_section = result.metadata.get("section_path", "")
-        source_url = result.metadata.get("source_url")
-        file_path = result.metadata.get("file_path")
-        doc_version = result.metadata.get("doc_version")
+        content_type = result.source.content_type
+        raw_section = result.source.section_path
+        source_url = result.source.source_url
+        file_path = result.source.file_path
+        doc_version = result.source.doc_version
 
         anchor_match = _ANCHOR_URL_RE.search(raw_section)
         if anchor_match:
@@ -105,8 +102,7 @@ def build_context(
         if not title:
             title = f"Source {i}"
 
-        reason = result.retrieval_reason
-        match_type = "knowledge_graph" if "knowledge graph" in reason else "semantic"
+        match_type = "knowledge_graph" if result.matched_by == "entity_boost" else "semantic"
 
         raw_sources.append({
             "title": title,

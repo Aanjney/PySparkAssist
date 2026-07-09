@@ -7,11 +7,6 @@ def expand_entities(
     max_depth: int = 1,
     max_expansion: int = 15,
 ) -> set[str]:
-    """Expand entity names by traversing the knowledge graph.
-
-    Caps total expansion to max_expansion to prevent highly connected
-    hub nodes from returning overly broad filter sets.
-    """
     if not entity_names:
         return set()
 
