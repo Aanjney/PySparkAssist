@@ -1,24 +1,16 @@
 # PySparkAssist
 
-PySparkAssist scrapes official-ish documentation and Spark examples, stuffs them into a vector database, keeps entity relationships in SQLite, and answers questions with a small LLM (via [Groq](https://groq.com)) that is *required* to cite what it retrieved.
+A RAG chatbot for learning PySpark. It scrapes official docs and Spark Python examples, chunks and embeds them into Qdrant, and answers questions with a small Groq model that has to cite what it retrieved. Embeddings and vectors stay on your box; only generation hits Groq.
 
-I built it because I wanted a tool I’d actually use while learning PySpark and because something like this on the CV might help with the AI engineer roles that keep rejecting me.
+Longer design notes live in [`docs/superpowers/specs/2026-07-08-pysparkassist-production-rag-design.md`](docs/superpowers/specs/2026-07-08-pysparkassist-production-rag-design.md) if you want the full story.
 
----
-
-## Features
-
-- **Grounded answers** from retrieved chunks
-- **Hybrid retrieval**: dense search in Qdrant + optional boosts from a tiny **entity graph**
-- **Streaming chat** over SSE, with **Groq rate-limit transparency**
-- **Local-first data plane**: embeddings and vectors stay on disk
-- A **frontend** that’s one HTML file, one JS file, and enough Tailwind
+**How it fits together:** ingest runs on the host and fills Qdrant + a SQLite entity index; the API container embeds queries, retrieves chunks (dense search, with an optional entity boost), and streams SSE to a plain HTML frontend.
 
 ---
 
-## Deployment
+## Get it running
 
-**Idea:** build search data **on the host** with a normal Python venv (ingest needs Playwright, `git`, and time). Run the **API in Docker** using that same `data/` tree on a volume — the image stays smaller and does not run ingestion.
+You'll need [uv](https://docs.astral.sh/uv/), Docker, and a Groq API key. On the VPS, Qdrant and the API are standalone `docker run` containers; Caddy in [`wee-deployment-scripts`](https://github.com/Aanjney/wee-deployment-scripts) handles TLS and proxies to the API.
 
 ### 1. Clone and configure
 
@@ -26,162 +18,101 @@ I built it because I wanted a tool I’d actually use while learning PySpark and
 git clone https://github.com/Aanjney/pysparkassist.git
 cd pysparkassist
 cp env.example .env
-# Edit .env: GROQ_API_KEY, GROQ_MODEL, EMBEDDING_MODEL, paths (default ./data/... for local work)
+# Set GROQ_API_KEY (and tweak models/paths if you care)
 ```
 
-### 2. Ingest (local venv, whenever we need fresh data)
+Install uv if you don't have it:
 
 ```bash
-python -m venv venv && source venv/bin/activate 
-pip install -r requirements.txt
-python -m playwright install-deps chromium && python -m playwright install chromium
-python -m pysparkassist.ingest run
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source "$HOME/.local/bin/env"   # if `uv` isn't on PATH yet
 ```
 
-This fills `**./data/**` (Qdrant files, `graph.db`, raw scrape, cached embedding weights). Run from the repo root.
-
-### 3. Run the API locally (optional)
+Host deps for ingest and evals:
 
 ```bash
-python -m pysparkassist
-# → http://localhost:8000
+uv sync --extra ml --extra ingest --extra dev
 ```
 
-### 4. Run with Docker
+### 2. Qdrant + ingest
 
-The `**Dockerfile**` installs only `**requirements-runtime.txt**` (no crawl4ai / Playwright). **Mount the existing** `./data` into the container at `**/app/data`** and point env paths at `/app/data/...` (see `env.example` comments or duplicate `.env` with Docker paths).
+Create a Docker network once, then start Qdrant:
+
+```bash
+docker network create pysparkassist
+
+docker run -d \
+  --name qdrant \
+  --network pysparkassist \
+  -p 127.0.0.1:6333:6333 \
+  -v pysparkassist_qdrant:/qdrant/storage \
+  --restart unless-stopped \
+  qdrant/qdrant:latest
+```
+
+Ingest runs on the host. `.env` should have `QDRANT_URL=http://localhost:6333` for this step:
+
+```bash
+uv run python -m playwright install chromium
+uv run python -m pysparkassist.ingest run
+```
+
+That crawl takes a while the first time. Go get coffee.
+
+### 3. API container
+
+Build and run the API. Mount `./data` so the entity index and manifest from ingest are visible inside the container:
 
 ```bash
 docker build -t pysparkassist:local .
-docker run --rm -p 8000:8000 --env-file .env \
+
+docker run -d \
+  --name pysparkassist \
+  --network pysparkassist \
+  -p 127.0.0.1:8000:8000 \
   -v "$(pwd)/data:/app/data" \
+  --env-file .env \
+  -e QDRANT_URL=http://qdrant:6333 \
+  --restart unless-stopped \
   pysparkassist:local
 ```
 
-If `.env` still uses `./data/...`, override for Docker, e.g. `QDRANT_PATH=/app/data/qdrant`, `SQLITE_PATH=/app/data/graph.db`, etc.
+Health check: `curl -s http://127.0.0.1:8000/api/health`
 
----
+### 4. Caddy (public HTTPS)
 
-## Project structure
+In `wee-deployment-scripts`, the Caddyfile proxies `pysparkassist.duckdns.org` → `pysparkassist:8000`. For that to resolve, attach the API container to Caddy's compose network (usually `edge_default`):
 
-```text
-PySparkAssist/
-├── Dockerfile
-├── requirements.txt           # full stack (local dev + ingest)
-├── requirements-runtime.txt   # API-only deps for Docker
-├── env.example
-├── frontend/
-├── pysparkassist/
-│   ├── api/
-│   ├── config.py
-│   ├── generation/
-│   ├── ingest/
-│   ├── retrieval/
-│   └── __main__.py
-└── README.md
+```bash
+docker network connect edge_default pysparkassist
 ```
 
----
+Then from `wee-deployment-scripts`:
 
-## Ingestion strategy
-
-Offline pipeline: turn docs and example code into searchable vectors plus a small entity graph.
-
-```mermaid
-flowchart LR
-  subgraph ingest [Ingestion]
-    S[Scrape docs + examples] --> CH[Chunk markdown + Python]
-    CH --> EM[Embed BGE]
-    EM --> Q[(Qdrant vectors)]
-    CH --> EX[Extract entities]
-    EX --> SL[(SQLite entities)]
-    SL --> GB[Graph: co-occur + curated edges]
-  end
+```bash
+docker compose up -d caddy
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-
-
-**In short:** scrape once, chunk by headings / code structure, embed with the same model you’ll use at query time, store vectors in Qdrant, store entities and relationships in SQLite so retrieval can go beyond pure similarity.
-
-**Why these choices**
-
-
-| Choice                     | Upside                                             | Tradeoff                                                              |
-| -------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| **Local Qdrant + SQLite**  | Simple deploy                                      | Maybe too simple idk                                                  |
-| **Chunking heuristics**    | Fast, deterministic, good enough for docs/examples | Not semantic segmentation; occasional awkward splits                  |
-| **Entity graph as add-on** | Cheap signal for related APIs and examples         | Maintenance of seeds + heuristics; not a full knowledge graph product |
-| **Separate ingest CLI**    | Heavy work isn’t on the request path               | Additional step                                                       |
-
+**Where things live:** ingest on the host (uv), Qdrant + API via `docker run` on network `pysparkassist`, Caddy via compose. Qdrant data is in the `pysparkassist_qdrant` volume; SQLite and manifests sit under `./data`.
 
 ---
 
-## Retrieval strategy
+## Retrieval evals
 
-Turn a user question into a tight context block (and source metadata) for the LLM.
+There's a golden question set under `pysparkassist/evals/data/`. Run it against your ingested index — no Groq calls, just retrieval:
 
-```mermaid
-flowchart TD
-  U[User query] --> EQ[Embed query same model as ingest]
-  EQ --> VS[Vector search in Qdrant]
-  U --> EN[Match entities in query]
-  EN --> GX[Expand via SQLite graph]
-  GX --> VF[Fetch extra chunks by ID]
-  VS --> MRG[Merge + boost overlaps]
-  VF --> MRG
-  MRG --> BC[build_context]
-  BC --> OUT[Single context string + source cards]
+```bash
+uv run python -m pysparkassist.evals.run --modes dense_only,dense_entity_boost --k 8
 ```
 
-
-
-**In short:** dense search does the heavy lifting; if the query mentions known entities, the graph can pull in related chunks. Overlaps get a small score boost so “found by vector and graph” ranks higher.
-
-**Tradeoffs**
-
-- **Speed vs depth:** chunk count is capped so latency stays tolerable.
-- **Recall vs noise:** graph expansion can add odd neighbors; merge/scoring trims most of that.
-- **No live web:** freshness is whatever the last ingest was.
-
----
-
-## Generation strategy
-
-Groq streams tokens; the app keeps the model inside PySpark + retrieved context.
-
-```mermaid
-flowchart LR
-  IN[Query + context + history] --> BM[build_messages + token budget]
-  BM --> GC[Groq chat completion stream]
-  GC --> SSE[SSE to browser]
-  GC --> HDR[Rate-limit headers]
-  HDR --> CACHE[In-memory + optional JSON file]
-```
-
-
-
-**In short:** one system prompt (scope, citations, no fake URLs, sane code fences), truncate context/history to fit budget, stream over SSE, map errors to user-safe messages, refresh shared Groq quota from response headers (and optional startup `models.list` probe).
-
-**Tradeoff:** tuned for **learner-friendly, grounded answers**, not for open-ended “build whole ETL” codegen.
-
----
-
-## Frontend
-
-- **Alpine.js** for reactive UI (chat, dark mode, usage panel).
-- **Tailwind** via CDN (no bundler).
-- **marked** for markdown; **highlight.js** for fenced code (highlighting runs when markdown is parsed so streaming doesn’t show raw backticks for long).
-- **DOMPurify** on rendered HTML before `innerHTML`.
-- **SSE** (`fetch` + `ReadableStream`) for chat tokens; **polling** `/api/limits` for Groq usage (no WebSocket).
-- **localStorage** for dark mode preference.
+Reports land in `eval_reports/` (JSON + markdown). Compares plain vector search vs the entity-boost path so you can see if the SQLite index is worth the extra moving parts.
 
 ---
 
 ## Configuration
 
-See `**env.example`** for variables (paths, `GROQ_*`, embedding model, rate limits, etc.).
-
-Runtime data lives under `**./data/`** at the repo root by default (Qdrant, SQLite graph, cached embedding weights, `groq_limits.json`). Docker expects that directory mounted at `**/app/data`** with matching paths in env.
+See `env.example`. The important bits: `GROQ_API_KEY`, `GROQ_MODEL`, `EMBEDDING_MODEL`, `QDRANT_URL` (localhost for host tools, `http://qdrant:6333` inside the API container), and `DATA_DIR` for the entity index and cached embedding weights.
 
 ---
 
