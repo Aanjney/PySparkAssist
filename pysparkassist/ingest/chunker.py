@@ -2,6 +2,24 @@ import ast
 import re
 from dataclasses import dataclass, field
 
+_NAV_MARKERS = ("Site Navigation", "Skip to main content")
+_ANCHOR_LINK_RE = re.compile(r"\[[^\]]*\]\(#")
+
+
+def is_index_chunk(content: str) -> bool:
+    if any(marker in content for marker in _NAV_MARKERS):
+        return True
+    words = content.split()
+    if not words:
+        return False
+    anchor_links = len(_ANCHOR_LINK_RE.findall(content))
+    if anchor_links >= 5 and anchor_links / len(words) > 0.08:
+        return True
+    hash_links = content.count("](#")
+    if hash_links >= 8 and hash_links / len(words) > 0.12:
+        return True
+    return False
+
 
 @dataclass
 class Chunk:
@@ -20,13 +38,20 @@ def chunk_markdown(
     max_tokens: int = 800,
     min_tokens: int = 100,
 ) -> list[Chunk]:
-    """Split markdown by section headings (H2/H3), keeping API signatures with their docs."""
     sections = re.split(r"(?=^#{2,3}\s)", markdown, flags=re.MULTILINE)
     chunks: list[Chunk] = []
 
+    def meta(section_path: str) -> dict:
+        return {
+            "source_url": source_url,
+            "doc_version": doc_version,
+            "section_path": section_path,
+            "content_type": "documentation",
+        }
+
     for section in sections:
         section = section.strip()
-        if not section:
+        if not section or is_index_chunk(section):
             continue
 
         heading_match = re.match(r"^(#{2,3})\s+(.+)", section)
@@ -34,42 +59,18 @@ def chunk_markdown(
 
         approx_tokens = len(section.split())
         if approx_tokens <= max_tokens:
-            chunks.append(Chunk(
-                content=section,
-                metadata={
-                    "source_url": source_url,
-                    "doc_version": doc_version,
-                    "section_path": section_path,
-                    "content_type": "documentation",
-                },
-            ))
+            chunks.append(Chunk(content=section, metadata=meta(section_path)))
         else:
             paragraphs = section.split("\n\n")
             current = ""
             for para in paragraphs:
                 if len((current + "\n\n" + para).split()) > max_tokens and len(current.split()) >= min_tokens:
-                    chunks.append(Chunk(
-                        content=current.strip(),
-                        metadata={
-                            "source_url": source_url,
-                            "doc_version": doc_version,
-                            "section_path": section_path,
-                            "content_type": "documentation",
-                        },
-                    ))
+                    chunks.append(Chunk(content=current.strip(), metadata=meta(section_path)))
                     current = para
                 else:
                     current = current + "\n\n" + para if current else para
             if current.strip():
-                chunks.append(Chunk(
-                    content=current.strip(),
-                    metadata={
-                        "source_url": source_url,
-                        "doc_version": doc_version,
-                        "section_path": section_path,
-                        "content_type": "documentation",
-                    },
-                ))
+                chunks.append(Chunk(content=current.strip(), metadata=meta(section_path)))
 
     return chunks
 
@@ -79,7 +80,6 @@ def chunk_python_file(
     file_path: str,
     category: str,
 ) -> list[Chunk]:
-    """Split Python file by function definitions. Falls back to whole-file if no functions."""
     chunks: list[Chunk] = []
     module_docstring = ""
 

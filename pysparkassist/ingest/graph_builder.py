@@ -17,12 +17,6 @@ def build_co_occurrence_relationships(
     min_cooccurrences: int = 3,
     max_entity_freq: float = 0.5,
 ) -> int:
-    """Infer relationships from entity co-occurrence in chunks.
-
-    Pairs that appear together in >= min_cooccurrences chunks get a
-    'co_occurs_with' edge. Entities appearing in more than max_entity_freq
-    fraction of all chunks are excluded as too generic.
-    """
     total_chunks = graph.conn.execute(
         "SELECT COUNT(DISTINCT chunk_id) FROM chunk_entities"
     ).fetchone()[0]
@@ -114,20 +108,18 @@ CURATED_RELATIONSHIPS: list[tuple[str, str, str]] = [
 
 
 def seed_curated_relationships(graph: EntityGraph) -> int:
-    """Insert hand-picked PySpark entity relationships."""
-    added = 0
     for src, tgt, rel_type in CURATED_RELATIONSHIPS:
         graph.add_relationship(src, tgt, rel_type)
-        added += 1
-    logger.info("Seeded %d curated relationships", added)
-    return added
+    count = len(CURATED_RELATIONSHIPS)
+    logger.info("Seeded %d curated relationships", count)
+    return count
 
 
 def build_graph(graph: EntityGraph) -> dict:
-    """Run the full graph-building pipeline: curated seed + co-occurrence."""
     graph.clear_relationships()
     curated = seed_curated_relationships(graph)
     cooccur = build_co_occurrence_relationships(graph)
+    graph.commit()
     total = graph.relationship_count()
     logger.info("Graph complete: %d total relationships (%d curated + %d co-occurrence)", total, curated, cooccur)
     return {"curated": curated, "co_occurrence": cooccur, "total": total}

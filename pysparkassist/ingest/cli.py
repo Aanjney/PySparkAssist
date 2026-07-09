@@ -2,19 +2,35 @@ import argparse
 import asyncio
 import json
 import logging
+import sys
 from pathlib import Path
 
+from qdrant_client import QdrantClient
+
 from pysparkassist.config import get_settings
+from pysparkassist.ingest.chunker import Chunk, chunk_markdown, chunk_python_file
+from pysparkassist.ingest.entities import EntityGraph
+from pysparkassist.ingest.graph_builder import build_graph
+from pysparkassist.ingest.indexer import embed_and_store
+from pysparkassist.ingest.manifest import build_manifest, write_manifest
 from pysparkassist.ingest.scraper import scrape_all
-from pysparkassist.ingest.chunker import chunk_markdown, chunk_python_file, Chunk
-from pysparkassist.ingest.embedder import embed_and_store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+_QDRANT_START = "  docker run -d --name qdrant --network pysparkassist -p 127.0.0.1:6333:6333 -v pysparkassist_qdrant:/qdrant/storage qdrant/qdrant:latest"
+
+
+def require_qdrant(url: str) -> None:
+    try:
+        QdrantClient(url=url, timeout=5).get_collections()
+    except Exception:
+        logger.error("Qdrant is not reachable at %s", url)
+        print(f"Start Qdrant with:\n{_QDRANT_START}", file=sys.stderr)
+        sys.exit(1)
+
 
 def load_chunks_from_raw(raw_dir: Path) -> list[Chunk]:
-    """Load all scraped content and chunk it."""
     chunks: list[Chunk] = []
 
     docs_dir = raw_dir / "docs"
@@ -41,6 +57,10 @@ def load_chunks_from_raw(raw_dir: Path) -> list[Chunk]:
     return chunks
 
 
+def _manifest_path(settings) -> Path:
+    return Path(settings.data_dir) / "manifest.json"
+
+
 def cmd_scrape(args: argparse.Namespace) -> None:
     settings = get_settings()
     asyncio.run(scrape_all(Path(settings.raw_data_path)))
@@ -54,20 +74,18 @@ def cmd_chunk(args: argparse.Namespace) -> None:
 
 def cmd_embed(args: argparse.Namespace) -> None:
     settings = get_settings()
+    require_qdrant(settings.qdrant_url)
     chunks = load_chunks_from_raw(Path(settings.raw_data_path))
-    count = embed_and_store(
+    stats = embed_and_store(
         chunks,
-        qdrant_path=settings.qdrant_path,
+        qdrant_url=settings.qdrant_url,
         sqlite_path=settings.sqlite_path,
         model_name=settings.embedding_model,
     )
-    logger.info("Embedding complete: %d chunks stored", count)
+    logger.info("Embedding complete: %d chunks stored", stats["chunk_count"])
 
 
 def cmd_build_graph(args: argparse.Namespace) -> None:
-    """Build entity relationships from co-occurrence + curated seed."""
-    from pysparkassist.ingest.entities import EntityGraph
-    from pysparkassist.ingest.graph_builder import build_graph
     settings = get_settings()
     graph = EntityGraph(settings.sqlite_path)
     result = build_graph(graph)
@@ -75,12 +93,35 @@ def cmd_build_graph(args: argparse.Namespace) -> None:
     graph.close()
 
 
+def _write_run_manifest(settings, embed_stats: dict, relationship_count: int) -> None:
+    manifest = build_manifest(
+        embedding_model=settings.embedding_model,
+        embedding_dimension=embed_stats["embedding_dimension"],
+        source_versions=embed_stats["source_versions"],
+        chunk_count=embed_stats["chunk_count"],
+        entity_count=embed_stats["entity_count"],
+        relationship_count=relationship_count,
+    )
+    write_manifest(_manifest_path(settings), manifest)
+
+
 def cmd_run(args: argparse.Namespace) -> None:
-    """Run the full pipeline: scrape -> chunk -> embed -> build graph."""
     logger.info("Starting full ingestion pipeline")
+    settings = get_settings()
+    require_qdrant(settings.qdrant_url)
     cmd_scrape(args)
-    cmd_embed(args)
-    cmd_build_graph(args)
+    chunks = load_chunks_from_raw(Path(settings.raw_data_path))
+    embed_stats = embed_and_store(
+        chunks,
+        qdrant_url=settings.qdrant_url,
+        sqlite_path=settings.sqlite_path,
+        model_name=settings.embedding_model,
+    )
+    graph = EntityGraph(settings.sqlite_path)
+    build_graph(graph)
+    relationship_count = graph.relationship_count()
+    graph.close()
+    _write_run_manifest(settings, embed_stats, relationship_count)
     logger.info("Ingestion pipeline complete")
 
 

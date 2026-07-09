@@ -15,6 +15,26 @@ PYSPARK_MODULES = {
     "pyspark.streaming", "pyspark.pandas", "pyspark.sql.streaming",
 }
 
+# ponytail: minimal allowlist; expand when evals show missed methods
+PYSPARK_METHODS = {
+    "select", "filter", "join", "groupBy", "groupby", "orderBy", "withColumn",
+    "drop", "cache", "persist", "unpersist", "explain", "createDataFrame",
+    "parquet", "csv", "json", "orc", "jdbc", "fit", "transform", "evaluate",
+    "where", "distinct", "limit", "collect", "count", "agg", "alias", "union",
+    "repartition", "coalesce", "fillna", "dropna", "withColumnRenamed",
+    "createOrReplaceTempView", "registerTempTable", "write", "read", "load", "save",
+    "writeStream", "readStream", "watermark", "outputMode", "trigger",
+    "awaitTermination", "withWatermark",
+}
+
+PYTHON_BUILTINS = {
+    "print", "len", "str", "int", "float", "list", "dict", "set", "tuple", "range",
+    "enumerate", "zip", "map", "sorted", "open", "type", "isinstance", "getattr",
+    "setattr", "hasattr", "super", "format", "repr", "abs", "min", "max", "sum",
+    "any", "all", "iter", "next", "input", "vars", "dir", "id", "hash", "round",
+    "append", "extend", "pop", "get", "set", "add", "run",
+}
+
 DOMAIN_TERMS = {
     "ingestion", "ingest", "etl", "pipeline", "partition", "partitioning",
     "repartition", "coalesce", "broadcast", "shuffle", "cache", "persist",

@@ -3,18 +3,22 @@ import sqlite3
 from dataclasses import dataclass
 
 from pysparkassist.ingest.chunker import Chunk
-from pysparkassist.ingest.constants import PYSPARK_CLASSES, PYSPARK_MODULES
+from pysparkassist.ingest.constants import (
+    PYSPARK_CLASSES,
+    PYSPARK_METHODS,
+    PYSPARK_MODULES,
+    PYTHON_BUILTINS,
+)
 
 
 @dataclass
 class Entity:
     name: str
-    entity_type: str  # module, class, method, concept
+    entity_type: str
     module: str = ""
 
 
 def extract_entities_from_chunk(chunk: Chunk) -> list[Entity]:
-    """Extract PySpark entities from a chunk using pattern matching."""
     entities: list[Entity] = []
     seen: set[str] = set()
     content = chunk.content
@@ -32,9 +36,12 @@ def extract_entities_from_chunk(chunk: Chunk) -> list[Entity]:
     method_pattern = re.compile(r"\.(\w+)\s*\(")
     for match in method_pattern.finditer(content):
         method_name = match.group(1)
-        if method_name not in seen and not method_name.startswith("_") and len(method_name) > 2:
-            entities.append(Entity(name=method_name, entity_type="method"))
-            seen.add(method_name)
+        if method_name in seen or method_name.startswith("_") or len(method_name) <= 2:
+            continue
+        if method_name in PYTHON_BUILTINS or method_name not in PYSPARK_METHODS:
+            continue
+        entities.append(Entity(name=method_name, entity_type="method"))
+        seen.add(method_name)
 
     section_path = chunk.metadata.get("section_path", "")
     fqn_pattern = re.compile(r"pyspark\.\w+(?:\.\w+)*\.(\w+)")
@@ -48,8 +55,6 @@ def extract_entities_from_chunk(chunk: Chunk) -> list[Entity]:
 
 
 class EntityGraph:
-    """SQLite-backed entity relationship graph."""
-
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._conn: sqlite3.Connection | None = None
@@ -90,27 +95,34 @@ class EntityGraph:
         """)
         self.conn.commit()
 
+    def clear_all(self) -> None:
+        self.conn.executescript("""
+            DELETE FROM chunk_entities;
+            DELETE FROM relationships;
+            DELETE FROM entities;
+        """)
+        self.conn.commit()
+
+    def commit(self) -> None:
+        self.conn.commit()
+
     def add_entity(self, entity: Entity) -> None:
         self.conn.execute(
             "INSERT OR IGNORE INTO entities (name, entity_type, module) VALUES (?, ?, ?)",
             (entity.name, entity.entity_type, entity.module),
         )
-        self.conn.commit()
 
     def add_relationship(self, source: str, target: str, rel_type: str) -> None:
         self.conn.execute(
             "INSERT OR IGNORE INTO relationships (source_name, target_name, rel_type) VALUES (?, ?, ?)",
             (source, target, rel_type),
         )
-        self.conn.commit()
 
-    def link_chunk_entities(self, chunk_id: str, entity_names: list[str]) -> None:
-        for name in entity_names:
-            self.conn.execute(
-                "INSERT OR IGNORE INTO chunk_entities (chunk_id, entity_name) VALUES (?, ?)",
-                (chunk_id, name),
-            )
-        self.conn.commit()
+    def link_chunk_entities_batch(self, links: list[tuple[str, str]]) -> None:
+        self.conn.executemany(
+            "INSERT OR IGNORE INTO chunk_entities (chunk_id, entity_name) VALUES (?, ?)",
+            links,
+        )
 
     def get_related_entities(self, name: str) -> list[Entity]:
         rows = self.conn.execute(
@@ -126,15 +138,11 @@ class EntityGraph:
         ).fetchall()
         return [Entity(name=r["name"], entity_type=r["entity_type"], module=r["module"]) for r in rows]
 
-    def get_entity_ids_for_chunk(self, chunk_id: str) -> list[str]:
-        rows = self.conn.execute(
-            "SELECT entity_name FROM chunk_entities WHERE chunk_id = ?", (chunk_id,)
-        ).fetchall()
-        return [r["entity_name"] for r in rows]
-
     def clear_relationships(self) -> None:
         self.conn.execute("DELETE FROM relationships")
-        self.conn.commit()
+
+    def entity_count(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM entities").fetchone()[0]
 
     def relationship_count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM relationships").fetchone()[0]
