@@ -14,7 +14,6 @@ RULES:
 
 
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate: ~4 chars per token for English."""
     return len(text) // 4
 
 
@@ -25,7 +24,6 @@ def build_messages(
     max_history: int = 4,
     max_input_tokens: int = 7000,
 ) -> list[dict]:
-    """Build the message list for the Groq API call, truncating to fit token budget."""
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     budget = max_input_tokens - _estimate_tokens(SYSTEM_PROMPT) - _estimate_tokens(user_query) - 100
 

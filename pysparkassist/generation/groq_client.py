@@ -32,16 +32,12 @@ class UsageStats:
 
 @dataclass
 class StreamEvent:
-    event_type: str  # "token", "done", "error"
+    event_type: str
     data: str = ""
     usage: UsageStats | None = None
 
 
 async def fetch_rate_limits_from_groq(client: AsyncGroq) -> UsageStats | None:
-    """Refresh quota snapshot from Groq using GET /openai/v1/models (same rate-limit headers as chat).
-
-    Costs one API request against your daily request budget; no completion tokens.
-    """
     try:
         response = await client.models.with_raw_response.list()
         return _usage_from_headers(response.headers)
@@ -57,7 +53,6 @@ async def stream_completion(
     temperature: float = 0.3,
     max_tokens: int = 2048,
 ) -> AsyncGenerator[StreamEvent, None]:
-    """Async generator that yields StreamEvents for SSE consumption."""
     try:
         response = await client.chat.completions.with_raw_response.create(
             model=model,
@@ -93,7 +88,6 @@ def _classify_error(exc: Exception) -> str:
 
 
 def _rate_limit_error_payload(message: str) -> str:
-    """Classify Groq 429 without leaking org IDs; TPD is only in the error body."""
     m = message.lower()
     code = "rate_limit"
     retry_hint: str | None = None
@@ -117,7 +111,6 @@ def _rate_limit_error_payload(message: str) -> str:
     if retry_hint:
         payload["retry_hint"] = retry_hint
     return json.dumps(payload)
-
 
 
 def _usage_from_headers(headers) -> UsageStats:
