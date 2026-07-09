@@ -1,0 +1,43 @@
+[project]
+name = "pysparkassist"
+version = "0.1.0"
+description = "RAG PySpark learning assistant"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.139.0",
+    "uvicorn[standard]==0.51.0",
+    "qdrant-client==1.18.0",
+    "groq==1.5.0",
+    "pydantic-settings==2.14.2",
+    "sse-starlette==3.4.5",
+]
+
+[project.optional-dependencies]
+ml = [
+    "sentence-transformers==5.6.0",
+    "torch>=2.0",
+    "rank-bm25>=0.2.2",
+]
+ingest = [
+    "crawl4ai>=0.4.0",
+    "playwright>=1.40.0",
+]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pysparkassist"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
