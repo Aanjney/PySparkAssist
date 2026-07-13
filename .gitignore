@@ -15,7 +15,8 @@ htmlcov/
 .env
 
 
-# Data 
-/data/
+# Data
+data/
+qdrant_data/
 
 eval_reports/
