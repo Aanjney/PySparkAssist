@@ -1,16 +1,16 @@
 # PySparkAssist
 
-A RAG chatbot for learning PySpark. It scrapes official docs and Spark Python examples, chunks and embeds them into Qdrant, and answers questions with a small Groq model that has to cite what it retrieved. Embeddings and vectors stay on your box; only generation hits Groq.
+A RAG chatbot for learning PySpark. It scrapes official docs and Spark Python examples, chunks and embeds them into Qdrant, and answers questions with a small GROQ LLM that has to cite what it retrieved. Embeddings and vectors stay on your box; only generation hits Groq.
 
-Longer design notes live in [`docs/superpowers/specs/2026-07-08-pysparkassist-production-rag-design.md`](docs/superpowers/specs/2026-07-08-pysparkassist-production-rag-design.md) if you want the full story.
 
-**How it fits together:** ingest runs on the host and fills Qdrant + a SQLite entity index; the API container embeds queries, retrieves chunks (dense search, with an optional entity boost), and streams SSE to a plain HTML frontend.
+
+**How is it structured:** ingest runs on the host and fills Qdrant + a SQLite entity index; the API container embeds queries, retrieves chunks (dense search, with an optional entity boost), and streams SSE to a plain HTML frontend.
 
 ---
 
 ## Get it running
 
-You'll need [uv](https://docs.astral.sh/uv/), Docker, and a Groq API key. On the VPS, Qdrant and the API are standalone `docker run` containers; Caddy in [`wee-deployment-scripts`](https://github.com/Aanjney/wee-deployment-scripts) handles TLS and proxies to the API.
+You'll need [uv](https://docs.astral.sh/uv/), Docker, and a Groq API key. On a VPS, Qdrant and the API are standalone `docker run` containers; Caddy handles TLS and proxies to the API.
 
 ### 1. Clone and configure
 
@@ -18,17 +18,17 @@ You'll need [uv](https://docs.astral.sh/uv/), Docker, and a Groq API key. On the
 git clone https://github.com/Aanjney/pysparkassist.git
 cd pysparkassist
 cp env.example .env
-# Set GROQ_API_KEY (and tweak models/paths if you care)
+# Set GROQ_API_KEY (and tweak models/paths)
 ```
 
-Install uv if you don't have it:
+Install uv:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"   # if `uv` isn't on PATH yet
 ```
 
-Host deps for ingest and evals:
+deps for running ingest and evals:
 
 ```bash
 uv sync --extra ml --extra ingest --extra dev
@@ -57,7 +57,7 @@ uv run python -m playwright install chromium
 uv run python -m pysparkassist.ingest run
 ```
 
-That crawl takes a while the first time. Go get coffee.
+This would take a while.
 
 ### 3. API container
 
@@ -81,13 +81,13 @@ Health check: `curl -s http://127.0.0.1:8000/api/health`
 
 ### 4. Caddy (public HTTPS)
 
-In `wee-deployment-scripts`, the Caddyfile proxies `pysparkassist.duckdns.org` → `pysparkassist:8000`. For that to resolve, attach the API container to Caddy's compose network (usually `edge_default`):
+The Caddyfile proxies `pysparkassist.duckdns.org` → `pysparkassist:8000`. For that to resolve, attach the API container to Caddy's compose network:
 
 ```bash
 docker network connect edge_default pysparkassist
 ```
 
-Then from `wee-deployment-scripts`:
+Then:
 
 ```bash
 docker compose up -d caddy
@@ -100,13 +100,13 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 ## Retrieval evals
 
-There's a golden question set under `pysparkassist/evals/data/`. Run it against your ingested index — no Groq calls, just retrieval:
+There's a golden question set under `pysparkassist/evals/data/`. Run it against the ingested index — no Groq calls, just retrieval:
 
 ```bash
 uv run python -m pysparkassist.evals.run --modes dense_only,dense_entity_boost --k 8
 ```
 
-Reports land in `eval_reports/` (JSON + markdown). Compares plain vector search vs the entity-boost path so you can see if the SQLite index is worth the extra moving parts.
+Reports land in `eval_reports/` (JSON + markdown). Compares plain vector search vs the entity-boost path
 
 ---
 

@@ -9,11 +9,6 @@ from groq import AsyncGroq
 
 logger = logging.getLogger(__name__)
 
-# Groq header semantics (https://console.groq.com/docs/rate-limits#rate-limit-headers):
-#   x-ratelimit-*-requests → RPD (requests per day)
-#   x-ratelimit-*-tokens   → TPM (tokens per minute)
-# TPD (tokens per day) is NOT in headers; it surfaces only in 429 error bodies.
-
 
 @dataclass
 class UsageStats:

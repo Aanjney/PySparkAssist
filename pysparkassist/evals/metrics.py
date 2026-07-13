@@ -1,5 +1,3 @@
-# ponytail: no LLM-as-judge.
-
 from __future__ import annotations
 
 from pysparkassist.retrieval.models import RetrievedChunk

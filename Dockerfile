@@ -1,9 +1,7 @@
-# API container — includes ml extra (embeddings). Ingest crawlers stay on the host.
+# API container — includes embeddings.
 FROM python:3.12-slim-bookworm
 
 LABEL org.opencontainers.image.title="PySparkAssist"
-LABEL org.opencontainers.image.description="RAG PySpark learning assistant (slim runtime, no ML deps)"
-
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
